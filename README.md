@@ -1,5 +1,7 @@
 # samuraidamashii
 {
+  "cleanUrls": true,
+  "trailingSlash": false,
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
