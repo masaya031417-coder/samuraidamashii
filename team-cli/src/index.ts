@@ -141,18 +141,9 @@ program
   });
 
 function checkApiKeys(): void {
-  const missing: string[] = [];
-
-  if (!process.env.ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY (Claude用)');
-  if (!process.env.OPENAI_API_KEY) missing.push('OPENAI_API_KEY (REX・ZERO・NOA用)');
-  if (!process.env.GEMINI_API_KEY) missing.push('GEMINI_API_KEY (RIN・SAGE用)');
-
-  if (missing.length > 0) {
-    printInfo('以下のAPIキーが未設定です（該当キャラクターはスキップされます）:');
-    for (const key of missing) {
-      printInfo(`  ⚠️  ${key}`);
-    }
-    printInfo('.env ファイルに設定してください (.env.example を参照)');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    printError('ANTHROPIC_API_KEY が未設定です。.env ファイルに設定してください。');
+    printInfo('cp .env.example .env  # .envファイルを作成してAPIキーを記入');
     console.log();
   }
 }

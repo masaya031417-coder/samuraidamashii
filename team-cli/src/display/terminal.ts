@@ -24,16 +24,16 @@ export function printBanner(): void {
 export function printTeamMembers(): void {
   const members = [
     { emoji: '🧠', name: 'SHIN', dept: '経営・戦略', api: 'Claude', role: '全体戦略・長期計画' },
-    { emoji: '⚡', name: 'REX', dept: '戦略補佐', api: 'OpenAI', role: 'スピード反論・別視点' },
+    { emoji: '⚡', name: 'REX', dept: '戦略補佐', api: 'Claude', role: 'スピード反論・別視点' },
     { emoji: '🔥', name: 'MAYA', dept: 'マーケ・営業', api: 'Claude', role: 'SNS戦略・コピー量産' },
     { emoji: '💻', name: 'KEN', dept: 'エンジニア', api: 'Claude', role: 'コード生成・システム構築' },
-    { emoji: '🚀', name: 'ZERO', dept: '開発補佐', api: 'OpenAI', role: 'プロトタイプ・新技術検証' },
-    { emoji: '📊', name: 'RIN', dept: '財務・数字', api: 'Gemini', role: '収益計算・ROI分析' },
+    { emoji: '🚀', name: 'ZERO', dept: '開発補佐', api: 'Claude', role: 'プロトタイプ・新技術検証' },
+    { emoji: '📊', name: 'RIN', dept: '財務・数字', api: 'Claude', role: '収益計算・ROI分析' },
     { emoji: '⚖️', name: 'LEX', dept: '法務・リスク', api: 'Claude', role: '契約リスク・法的チェック' },
     { emoji: '👥', name: 'HANA', dept: '人事・採用', api: 'Claude', role: '採用基準・組織文化' },
-    { emoji: '💡', name: 'NOA', dept: '企画・イノベーション', api: 'OpenAI', role: '新規事業・破壊的提案' },
+    { emoji: '💡', name: 'NOA', dept: '企画・イノベーション', api: 'Claude', role: '新規事業・破壊的提案' },
     { emoji: '🎧', name: 'AMI', dept: 'カスタマーサポート', api: 'Claude', role: '顧客対応・FAQ作成' },
-    { emoji: '🔍', name: 'SAGE', dept: 'データ・リサーチ', api: 'Gemini', role: '市場調査・競合分析' },
+    { emoji: '🔍', name: 'SAGE', dept: 'データ・リサーチ', api: 'Claude', role: '市場調査・競合分析' },
   ];
 
   console.log('\n' + BOLD + '━━━ チームメンバー一覧 ━━━' + RESET + '\n');
