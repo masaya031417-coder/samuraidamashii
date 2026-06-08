@@ -1,0 +1,16 @@
+{
+  "name": "news-browser",
+  "version": "1.0.0",
+  "description": "金融・経済・政治ニュース スクレイパー (Playwright / APIキー不要)",
+  "main": "scrape_news.js",
+  "scripts": {
+    "start": "node scrape_news.js",
+    "demo": "node scrape_news.js --demo"
+  },
+  "keywords": ["playwright", "scraper", "news", "finance"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}
