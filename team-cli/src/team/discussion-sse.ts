@@ -1,5 +1,5 @@
 import { Character, CharacterResponse } from '../characters/types';
-import { callClaude } from '../api/claude';
+import { callClaude } from '../api/claude-cli';
 
 export type SseSendFn = (data: object) => void;
 

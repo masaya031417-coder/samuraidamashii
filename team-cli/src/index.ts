@@ -141,11 +141,7 @@ program
   });
 
 function checkApiKeys(): void {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    printError('ANTHROPIC_API_KEY が未設定です。.env ファイルに設定してください。');
-    printInfo('cp .env.example .env  # .envファイルを作成してAPIキーを記入');
-    console.log();
-  }
+  // claude CLI (Claude Code) を使用するため APIキー不要
 }
 
 // デフォルトでchatコマンドを実行

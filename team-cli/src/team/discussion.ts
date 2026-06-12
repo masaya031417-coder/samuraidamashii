@@ -1,5 +1,5 @@
 import { Character, CharacterResponse, TeamDiscussionResult } from '../characters/types';
-import { callClaude } from '../api/claude';
+import { callClaude } from '../api/claude-cli';
 import { callOpenAI } from '../api/openai';
 import { callGemini } from '../api/gemini';
 import {
