@@ -32,14 +32,14 @@ struct ContentView: View {
             .tabItem { Label("ファイル", systemImage: "doc.fill") }
             .tag(1)
 
-            // タブ3: テキスト入力
+            // タブ3: 会話型ステップ入力
             NavigationStack {
                 TextInputView(onResult: handleResult, isLoading: $isLoading)
-                    .navigationTitle("テキストで登録")
+                    .navigationTitle("入力して登録")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { signInStatusButton }
             }
-            .tabItem { Label("テキスト", systemImage: "text.quote") }
+            .tabItem { Label("入力", systemImage: "bubble.left.and.text.bubble.right") }
             .tag(2)
 
             // タブ4: 削除
