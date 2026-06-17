@@ -29,7 +29,10 @@ struct TextInputView: View {
 
     @StateObject private var api = APIService()
     @State private var step: Step = .date
-    @State private var messages: [ChatMsg] = []
+    // 最初の質問を初期値として直接入れておく（onAppearに頼らない）
+    @State private var messages: [ChatMsg] = [
+        ChatMsg(isApp: true, text: "📅 何日ですか？\n例：6月21日、2026/6/21")
+    ]
     @State private var currentInput = ""
     @FocusState private var focused: Bool
 
@@ -76,8 +79,7 @@ struct TextInputView: View {
                 inputBar
             }
         }
-        .onAppear { startWizard() }
-        // タブが再選択されたときもウィザードをリセット（edge case 対応）
+        // onAppear は不使用（@State 初期値で最初の質問を保証）
     }
 
     // MARK: - 入力バー
