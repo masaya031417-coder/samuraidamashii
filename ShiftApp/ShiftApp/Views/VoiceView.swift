@@ -1,4 +1,5 @@
 // VoiceView.swift - 音声入力でシフト情報を読み取るビュー
+// 「予定を入れて」を検出したら入力ウィザードへ自動切り替え
 
 import SwiftUI
 
@@ -6,6 +7,7 @@ struct VoiceView: View {
     let onResult: (Result<[Shift], Error>) -> Void
     @Binding var isLoading: Bool
 
+    @EnvironmentObject var appState: AppState
     @StateObject private var speech = SpeechService()
     @StateObject private var api    = APIService()
     @State private var hasPermission = false
@@ -15,7 +17,7 @@ struct VoiceView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            // 録音状態を示すアニメーション付きマイクアイコン
+            // 録音状態アニメーション
             ZStack {
                 Circle()
                     .fill(speech.isRecording ? Color.red.opacity(0.15) : Color.blue.opacity(0.1))
@@ -27,13 +29,12 @@ struct VoiceView: View {
                             : .default,
                         value: speech.isRecording
                     )
-
                 Image(systemName: speech.isRecording ? "waveform" : "mic.fill")
                     .font(.system(size: 64))
                     .foregroundStyle(speech.isRecording ? .red : .blue)
             }
 
-            // リアルタイム認識テキスト表示
+            // リアルタイム認識テキスト
             Group {
                 if !speech.transcribedText.isEmpty {
                     Text(speech.transcribedText)
@@ -42,7 +43,9 @@ struct VoiceView: View {
                         .padding()
                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
                 } else {
-                    Text(speech.isRecording ? "話してください..." : "マイクボタンを押して話してください\n例：「6月21日 18時から23時のシフト」")
+                    Text(speech.isRecording
+                         ? "話してください...\n（「予定を入れて」でステップ入力へ切り替わります）"
+                         : "マイクを押して話してください\n「予定を入れて」でウィザード起動")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -50,7 +53,7 @@ struct VoiceView: View {
             }
             .padding(.horizontal, 24)
 
-            // 録音開始 / 停止して解析 ボタン
+            // 録音ボタン
             Button { handleMicTap() } label: {
                 Text(speech.isRecording ? "停止して解析" : "録音開始")
                     .fontWeight(.semibold)
@@ -65,18 +68,26 @@ struct VoiceView: View {
 
             Spacer()
         }
-        // 起動時に権限確認
         .task {
             hasPermission = await speech.requestPermissions()
             if !hasPermission { showPermissionAlert = true }
         }
-        // 録音停止→テキスト確定後に自動でAPI送信
+        // 録音停止後の処理
         .onChange(of: speech.isRecording) { _, isRecording in
-            if !isRecording, !speech.transcribedText.isEmpty {
-                submitText(speech.transcribedText)
+            guard !isRecording else { return }
+            let text = speech.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return }
+
+            // 「予定を入れて」系のフレーズを検出 → ウィザードタブへ切り替え
+            if isWizardTrigger(text) {
+                speech.transcribedText = ""
+                appState.openWizard()
+                return
             }
+
+            // 通常のシフトテキストとして解析
+            submitText(text)
         }
-        // エラーメッセージ（SpeechService内）
         .onChange(of: speech.errorMessage) { _, msg in
             if let msg { onResult(.failure(SpeechError(message: msg))) }
         }
@@ -90,12 +101,18 @@ struct VoiceView: View {
         }
     }
 
+    // MARK: - Private
+
+    /// 「予定を入れて」「予定いれて」などのトリガーフレーズを判定
+    private func isWizardTrigger(_ text: String) -> Bool {
+        let t = text
+        return (t.contains("予定") || t.contains("よてい")) &&
+               (t.contains("入れ") || t.contains("いれ") || t.contains("入力") || t.contains("追加"))
+    }
+
     private func handleMicTap() {
-        if speech.isRecording {
-            speech.stopRecording()
-        } else {
-            speech.startRecording()
-        }
+        if speech.isRecording { speech.stopRecording() }
+        else                  { speech.startRecording() }
     }
 
     private func submitText(_ text: String) {
@@ -111,7 +128,6 @@ struct VoiceView: View {
     }
 }
 
-/// SpeechServiceのエラーを Result に乗せるためのラッパー
 private struct SpeechError: LocalizedError {
     let message: String
     var errorDescription: String? { message }

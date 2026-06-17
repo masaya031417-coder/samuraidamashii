@@ -1,26 +1,27 @@
-// TextInputView.swift - ステップ形式の会話型シフト入力ビュー
-// 日付 → 場所 → 時間 の順に聞いて、最後に確認してから登録する
+// TextInputView.swift - 会話型ステップ入力ウィザード
+// 「予定を入れて」で起動 → 何日 → 場所 → 何時から → 何時まで → 確認
 
 import SwiftUI
 
-// MARK: - Step 定義
+// MARK: - Step
 
 private enum Step {
-    case date    // 日にちはいつですか？
-    case place   // 場所はどこですか？
-    case time    // 何時から何時ですか？
-    case confirm // 確認
+    case date      // 何日ですか？
+    case place     // 場所はどこですか？
+    case startTime // 何時からですか？
+    case endTime   // 何時までですか？
+    case confirm   // 確認
 }
 
-// MARK: - チャットメッセージモデル
+// MARK: - Chat message
 
 private struct ChatMsg: Identifiable {
     let id = UUID()
-    let isApp: Bool  // true = アプリの吹き出し、false = ユーザーの入力
+    let isApp: Bool
     let text: String
 }
 
-// MARK: - メインビュー
+// MARK: - Main view
 
 struct TextInputView: View {
     let onResult: (Result<[Shift], Error>) -> Void
@@ -32,31 +33,28 @@ struct TextInputView: View {
     @State private var currentInput = ""
     @FocusState private var focused: Bool
 
-    // 各ステップで収集する値
-    @State private var storedDate  = ""
-    @State private var storedPlace = ""
-    @State private var storedTime  = ""
+    @State private var storedDate      = ""
+    @State private var storedPlace     = ""
+    @State private var storedStartTime = ""
+    @State private var storedEndTime   = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── チャット履歴エリア ──
+            // ── チャット履歴 ──
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 14) {
                         ForEach(messages) { msg in
                             BubbleRow(msg: msg).id(msg.id)
                         }
-                        // 確認カードは履歴の末尾に表示
                         if step == .confirm {
                             confirmCard.id("confirm")
                         }
-                        // スクロール余白
                         Color.clear.frame(height: 8).id("bottom")
                     }
                     .padding(.horizontal, 14)
-                    .padding(.top, 12)
+                    .padding(.top, 14)
                 }
-                // 新しいメッセージが来たら末尾へスクロール
                 .onChange(of: messages.count) { _ in
                     withAnimation(.easeOut(duration: 0.25)) {
                         proxy.scrollTo("bottom", anchor: .bottom)
@@ -73,12 +71,13 @@ struct TextInputView: View {
 
             Divider()
 
-            // ── テキスト入力バー（確認ステップでは非表示）──
+            // ── 入力バー ──
             if step != .confirm {
                 inputBar
             }
         }
         .onAppear { startWizard() }
+        // タブが再選択されたときもウィザードをリセット（edge case 対応）
     }
 
     // MARK: - 入力バー
@@ -95,7 +94,6 @@ struct TextInputView: View {
             Button { advance() } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 36))
-                    // 場所ステップは空でも進める
                     .foregroundStyle(canAdvance ? .blue : .gray)
             }
             .disabled(!canAdvance)
@@ -106,15 +104,17 @@ struct TextInputView: View {
     }
 
     private var canAdvance: Bool {
+        // 場所だけ空でも進める
         step == .place || !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var placeholder: String {
         switch step {
-        case .date:  return "例：6月21日"
-        case .place: return "例：グリオンアリーナ神戸（ない場合はそのまま次へ）"
-        case .time:  return "例：18時から23時"
-        case .confirm: return ""
+        case .date:      return "例：6月21日、2026/6/21"
+        case .place:     return "例：グリオンアリーナ神戸（ない場合はそのまま次へ）"
+        case .startTime: return "例：18時、18:00"
+        case .endTime:   return "例：23時、23:00"
+        case .confirm:   return ""
         }
     }
 
@@ -130,13 +130,13 @@ struct TextInputView: View {
                 Text("以下の内容でよろしいですか？")
                     .font(.subheadline.bold())
 
-                // 入力内容サマリー
+                // 入力サマリー
                 VStack(alignment: .leading, spacing: 8) {
                     Label(storedDate,
                           systemImage: "calendar")
                     Label(storedPlace.isEmpty ? "場所なし" : storedPlace,
                           systemImage: "mappin.and.ellipse")
-                    Label(storedTime,
+                    Label("\(storedStartTime) 〜 \(storedEndTime)",
                           systemImage: "clock")
                 }
                 .font(.subheadline)
@@ -174,20 +174,17 @@ struct TextInputView: View {
 
     // MARK: - ウィザードロジック
 
-    /// 最初から始める
     private func startWizard() {
         messages = []
         currentInput = ""
-        storedDate = ""; storedPlace = ""; storedTime = ""
+        storedDate = ""; storedPlace = ""; storedStartTime = ""; storedEndTime = ""
         step = .date
-        // 少し遅らせてから最初の質問を表示
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            say("📅 日にちはいつですか？\n例：6月21日、2026/6/21")
+            say("📅 何日ですか？\n例：6月21日、2026/6/21")
             focused = true
         }
     }
 
-    /// 「次へ」を押したときの処理
     private func advance() {
         let value = currentInput.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -204,16 +201,23 @@ struct TextInputView: View {
             storedPlace = value
             reply(value.isEmpty ? "（場所なし）" : value)
             currentInput = ""
-            step = .time
-            later { say("🕐 何時から何時ですか？\n例：18時から23時、18:00〜23:00") }
+            step = .startTime
+            later { say("🕐 何時からですか？\n例：18時、18:00") }
 
-        case .time:
+        case .startTime:
             guard !value.isEmpty else { return }
-            storedTime = value
+            storedStartTime = value
+            reply(value)
+            currentInput = ""
+            step = .endTime
+            later { say("🕕 何時までですか？\n例：23時、23:00") }
+
+        case .endTime:
+            guard !value.isEmpty else { return }
+            storedEndTime = value
             reply(value)
             currentInput = ""
             focused = false
-            // 少し間を置いてから確認カードへ
             later { step = .confirm }
 
         case .confirm:
@@ -221,12 +225,11 @@ struct TextInputView: View {
         }
     }
 
-    /// APIにテキストを送信して結果を受け取る
     private func submitToAPI() {
-        // 「場所、時間の順番」で組み立てる
-        var parts = ["勤務日時：\(storedDate)"]
+        // Claude に渡すテキスト：場所・時間の順に組み立てる
+        var parts = ["日付：\(storedDate)"]
         if !storedPlace.isEmpty { parts.append("場所：\(storedPlace)") }
-        parts.append(storedTime)
+        parts.append("\(storedStartTime)から\(storedEndTime)まで")
         let text = parts.joined(separator: " ")
 
         isLoading = true
@@ -242,23 +245,20 @@ struct TextInputView: View {
 
     // MARK: - ヘルパー
 
-    /// アプリの吹き出しを追加
     private func say(_ text: String) {
         messages.append(ChatMsg(isApp: true, text: text))
     }
 
-    /// ユーザーの返答を追加
     private func reply(_ text: String) {
         messages.append(ChatMsg(isApp: false, text: text))
     }
 
-    /// 少し遅らせて実行（会話のテンポを作る）
     private func later(_ block: @escaping () -> Void) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: block)
     }
 }
 
-// MARK: - チャット吹き出し行
+// MARK: - 吹き出し行
 
 private struct BubbleRow: View {
     let msg: ChatMsg
@@ -266,25 +266,20 @@ private struct BubbleRow: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if msg.isApp {
-                // アプリ側（左揃え）
                 Image(systemName: "calendar.circle.fill")
                     .font(.title2)
                     .foregroundStyle(.blue)
-                    .alignmentGuide(.bottom) { d in d[.bottom] }
 
                 Text(msg.text)
                     .font(.body)
                     .multilineTextAlignment(.leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(.blue.opacity(0.1),
-                                in: AppBubble())
+                    .background(.blue.opacity(0.1), in: AppBubble())
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.72, alignment: .leading)
 
                 Spacer()
-
             } else {
-                // ユーザー側（右揃え）
                 Spacer()
 
                 Text(msg.text)
@@ -305,40 +300,30 @@ private struct BubbleRow: View {
     }
 }
 
-// MARK: - 吹き出し形状（左・右）
+// MARK: - 吹き出し形状
 
-/// アプリ側：左下に小さなしっぽ
 private struct AppBubble: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
-        let r: CGFloat = 14
-        let tail: CGFloat = 7
-        p.addRoundedRect(
-            in: CGRect(x: tail, y: 0, width: rect.width - tail, height: rect.height),
-            cornerSize: CGSize(width: r, height: r)
-        )
-        // しっぽ
-        p.move(to: CGPoint(x: tail, y: rect.height - 18))
+        let r: CGFloat = 14; let t: CGFloat = 7
+        p.addRoundedRect(in: CGRect(x: t, y: 0, width: rect.width - t, height: rect.height),
+                         cornerSize: CGSize(width: r, height: r))
+        p.move(to: CGPoint(x: t, y: rect.height - 18))
         p.addLine(to: CGPoint(x: 0, y: rect.height))
-        p.addLine(to: CGPoint(x: tail + 4, y: rect.height - 12))
+        p.addLine(to: CGPoint(x: t + 4, y: rect.height - 12))
         return p
     }
 }
 
-/// ユーザー側：右下に小さなしっぽ
 private struct UserBubble: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
-        let r: CGFloat = 14
-        let tail: CGFloat = 7
-        p.addRoundedRect(
-            in: CGRect(x: 0, y: 0, width: rect.width - tail, height: rect.height),
-            cornerSize: CGSize(width: r, height: r)
-        )
-        // しっぽ
-        p.move(to: CGPoint(x: rect.width - tail, y: rect.height - 18))
+        let r: CGFloat = 14; let t: CGFloat = 7
+        p.addRoundedRect(in: CGRect(x: 0, y: 0, width: rect.width - t, height: rect.height),
+                         cornerSize: CGSize(width: r, height: r))
+        p.move(to: CGPoint(x: rect.width - t, y: rect.height - 18))
         p.addLine(to: CGPoint(x: rect.width, y: rect.height))
-        p.addLine(to: CGPoint(x: rect.width - tail - 4, y: rect.height - 12))
+        p.addLine(to: CGPoint(x: rect.width - t - 4, y: rect.height - 12))
         return p
     }
 }

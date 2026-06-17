@@ -1,10 +1,29 @@
 // ShiftIntent.swift - Siriショートカット連携（App Intents / iOS 16+）
-// 「シフトを登録」と話しかけるとアプリを開かずに登録できる
 
 import AppIntents
 import GoogleSignIn
 
-// MARK: - App Intent
+// MARK: - 「予定を入れて」でウィザードを開くインテント
+
+@available(iOS 16.0, *)
+struct OpenWizardIntent: AppIntent {
+    static var title: LocalizedStringResource = "予定を入れる"
+    static var description = IntentDescription(
+        "シフトの予定入力ウィザードを開きます",
+        categoryName: "シフト管理"
+    )
+
+    // アプリを前面に出す
+    static var openAppWhenRun: Bool = true
+
+    func perform() async throws -> some IntentResult {
+        // アプリが起動したあとでウィザードタブへ切り替えるよう予約
+        UserDefaults.standard.set(2, forKey: "pendingTab")
+        return .result()
+    }
+}
+
+// MARK: - テキスト入力からシフトを登録するインテント
 
 @available(iOS 16.0, *)
 struct ParseShiftIntent: AppIntent {
@@ -14,25 +33,19 @@ struct ParseShiftIntent: AppIntent {
         categoryName: "シフト管理"
     )
 
-    /// Siriから受け取る勤務情報テキスト
-    @Parameter(title: "シフト情報", description: "例：6月21日 18時から23時 場所はグリーンアリーナ")
+    @Parameter(title: "シフト情報", description: "例：6月21日 グリオンアリーナ 18時から23時")
     var shiftText: String
 
-    /// Siriに表示するサマリー文
     static var parameterSummary: some ParameterSummary {
         Summary("「\(\.$shiftText)」のシフトを登録")
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        // Google サインイン未実施の場合は案内
         guard GIDSignIn.sharedInstance.currentUser != nil else {
-            return .result(
-                dialog: "まずアプリを開いてGoogleアカウントにサインインしてください"
-            )
+            return .result(dialog: "まずアプリを開いてGoogleアカウントにサインインしてください")
         }
 
-        // バックエンドでシフト解析
         let api = APIService()
         let shifts: [Shift]
         do {
@@ -45,34 +58,42 @@ struct ParseShiftIntent: AppIntent {
             return .result(dialog: "シフト情報が見つかりませんでした。もう一度話してください")
         }
 
-        // Googleカレンダーに登録
         let calendar = CalendarService()
         let count = (try? await calendar.pushShifts(shifts)) ?? 0
 
         let irregularCount = shifts.filter { $0.isIrregular }.count
-        var message = "\(count)件のシフトをGoogleカレンダーに登録しました"
-        if irregularCount > 0 {
-            message += "。\(irregularCount)件の変則シフトは手動で確認してください"
-        }
-        return .result(dialog: IntentDialog(stringLiteral: message))
+        var msg = "\(count)件のシフトをGoogleカレンダーに登録しました"
+        if irregularCount > 0 { msg += "。\(irregularCount)件の変則シフトは手動で確認してください" }
+        return .result(dialog: IntentDialog(stringLiteral: msg))
     }
 }
 
-// MARK: - App Shortcuts（Siri候補フレーズの登録）
+// MARK: - Siri候補フレーズの登録
 
 @available(iOS 16.0, *)
 struct ShiftAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        // 「予定を入れて」でウィザードを起動
+        AppShortcut(
+            intent: OpenWizardIntent(),
+            phrases: [
+                "予定を入れて",
+                "\(.applicationName)に予定を入れて",
+                "\(.applicationName)で予定を入力",
+                "予定入れて",
+            ],
+            shortTitle: "予定を入れる",
+            systemImageName: "calendar.badge.plus"
+        )
+        // テキストでシフトを直接登録
         AppShortcut(
             intent: ParseShiftIntent(),
             phrases: [
                 "シフトを登録",
                 "\(.applicationName)でシフトを登録",
-                "\(.applicationName)にシフトを追加",
-                "勤務を\(.applicationName)に登録",
             ],
             shortTitle: "シフト登録",
-            systemImageName: "calendar.badge.plus"
+            systemImageName: "calendar.badge.checkmark"
         )
     }
 }
