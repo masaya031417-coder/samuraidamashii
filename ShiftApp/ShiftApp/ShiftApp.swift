@@ -1,10 +1,18 @@
 // ShiftApp.swift - アプリエントリーポイント
 
 import SwiftUI
+import AppIntents
 
 @main
 struct ShiftApp: App {
     @StateObject private var appState = AppState()
+
+    init() {
+        // Siri が App Shortcuts を認識できるよう起動時に登録する
+        if #available(iOS 16.0, *) {
+            ShiftAppShortcuts.updateAppShortcutParameters()
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
