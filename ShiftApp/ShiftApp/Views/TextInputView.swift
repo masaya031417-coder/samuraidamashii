@@ -253,6 +253,7 @@ struct TextInputView: View {
             do {
                 let shifts = try await api.parseText(parts.joined(separator: " "))
                 onResult(.success(shifts))
+                resetWizard()   // 登録完了後は次回のために初期状態へ戻す
             } catch {
                 onResult(.failure(error))
             }

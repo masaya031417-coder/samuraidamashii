@@ -35,6 +35,7 @@ struct ContentView: View {
             // タブ2: 会話型ウィザード入力（「予定を入れて」で起動）
             NavigationStack {
                 TextInputView(onResult: handleResult, isLoading: $isLoading)
+                    .id(appState.wizardVersion)   // openWizard() のたびに再生成 → 常に日付から
                     .navigationTitle("入力して登録")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { signInStatusButton }
