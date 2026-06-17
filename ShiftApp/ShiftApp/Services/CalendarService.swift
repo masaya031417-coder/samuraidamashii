@@ -1,8 +1,18 @@
-// CalendarService.swift - Google Calendar REST APIを使ってシフトを登録するサービス
+// CalendarService.swift - Google Calendar REST APIを使ってシフトを登録・削除するサービス
 // GoogleSignIn-iOS SDK を使用（SPM: https://github.com/google/GoogleSignIn-iOS）
 
 import Foundation
 import GoogleSignIn
+
+/// Google Calendar API から取得したイベントを表すモデル
+struct CalendarEvent: Identifiable {
+    let id: String
+    let title: String
+    let date: String      // "2026-06-21"
+    let startTime: String // "18:00"
+    let endTime: String   // "23:00"
+    let place: String
+}
 
 @MainActor
 class CalendarService: ObservableObject {
@@ -74,6 +84,89 @@ class CalendarService: ObservableObject {
             }
         }
         return count
+    }
+
+    // MARK: - Fetch & Delete
+
+    /// 「シフト」タイトルのイベントを直近90日+過去7日で取得する
+    func fetchShiftEvents() async throws -> [CalendarEvent] {
+        guard let user = GIDSignIn.sharedInstance.currentUser else {
+            throw CalendarError.notSignedIn
+        }
+        try await user.refreshTokensIfNeeded()
+        guard let token = user.accessToken.tokenString else {
+            throw CalendarError.tokenUnavailable
+        }
+
+        // 過去7日〜今後90日の範囲を RFC 3339 形式で指定
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        let timeMin = formatter.string(from: Date().addingTimeInterval(-7 * 86400))
+        let timeMax = formatter.string(from: Date().addingTimeInterval(90 * 86400))
+
+        var comps = URLComponents(string: "\(calendarBase)/calendars/primary/events")!
+        comps.queryItems = [
+            .init(name: "q",            value: "シフト"),
+            .init(name: "timeMin",      value: timeMin),
+            .init(name: "timeMax",      value: timeMax),
+            .init(name: "singleEvents", value: "true"),
+            .init(name: "orderBy",      value: "startTime"),
+            .init(name: "maxResults",   value: "100"),
+        ]
+
+        var req = URLRequest(url: comps.url!)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let items = json?["items"] as? [[String: Any]] ?? []
+
+        return items.compactMap { item -> CalendarEvent? in
+            guard let id    = item["id"] as? String,
+                  let title = item["summary"] as? String,
+                  title.contains("シフト"),
+                  let startDict = item["start"] as? [String: String],
+                  let endDict   = item["end"]   as? [String: String]
+            else { return nil }
+
+            let startDT = startDict["dateTime"] ?? startDict["date"] ?? ""
+            let endDT   = endDict["dateTime"]   ?? endDict["date"]   ?? ""
+
+            return CalendarEvent(
+                id:        id,
+                title:     title,
+                date:      String(startDT.prefix(10)),
+                startTime: startDT.count >= 16 ? String(startDT[startDT.index(startDT.startIndex, offsetBy: 11)..<startDT.index(startDT.startIndex, offsetBy: 16)]) : "",
+                endTime:   endDT.count   >= 16 ? String(endDT[endDT.index(endDT.startIndex, offsetBy: 11)..<endDT.index(endDT.startIndex, offsetBy: 16)])   : "",
+                place:     item["location"] as? String ?? ""
+            )
+        }
+    }
+
+    /// 指定IDのカレンダーイベントを削除する
+    func deleteEvent(_ eventId: String) async throws {
+        guard let user = GIDSignIn.sharedInstance.currentUser else {
+            throw CalendarError.notSignedIn
+        }
+        try await user.refreshTokensIfNeeded()
+        guard let token = user.accessToken.tokenString else {
+            throw CalendarError.tokenUnavailable
+        }
+
+        guard let url = URL(string: "\(calendarBase)/calendars/primary/events/\(eventId)") else {
+            throw CalendarError.invalidURL
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await URLSession.shared.data(for: req)
+        // 204 No Content が正常レスポンス
+        guard let http = response as? HTTPURLResponse,
+              http.statusCode == 204 || (200..<300).contains(http.statusCode) else {
+            throw CalendarError.requestFailed
+        }
     }
 
     // MARK: - Private

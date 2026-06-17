@@ -3,7 +3,7 @@ calendar_push.py - Googleカレンダーにシフトイベントを登録する�
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -147,3 +147,75 @@ def push_shifts(shifts: list[dict], calendar_id: str = "primary") -> int:
             print(f"  ❌ {date} の登録に失敗しました: {e}")
 
     return success_count
+
+
+def _extract_time(dt_str: str) -> str:
+    """
+    Google Calendar APIが返す ISO 8601 文字列から HH:MM を抽出する。
+    例: "2026-06-21T18:00:00+09:00" → "18:00"
+    """
+    if not dt_str or "T" not in dt_str:
+        return ""
+    return dt_str[11:16]
+
+
+def list_shift_events(calendar_id: str = "primary", days_back: int = 7, days_ahead: int = 90) -> list[dict]:
+    """
+    Googleカレンダーから「シフト」タイトルのイベントを取得して返す。
+    過去 days_back 日〜今後 days_ahead 日の範囲を対象とする。
+    返り値: [{"id":"...","title":"...","date":"...","start":"...","end":"...","place":"..."}]
+    """
+    creds = _get_credentials()
+
+    try:
+        service = build("calendar", "v3", credentials=creds)
+    except HttpError as e:
+        print(f"❌ Google Calendar APIの初期化に失敗しました: {e}")
+        raise
+
+    now = datetime.now(timezone.utc)
+    time_min = (now - timedelta(days=days_back)).isoformat()
+    time_max = (now + timedelta(days=days_ahead)).isoformat()
+
+    results = (
+        service.events()
+        .list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            q="シフト",          # タイトルに「シフト」を含むもののみ
+            singleEvents=True,
+            orderBy="startTime",
+            maxResults=100,
+        )
+        .execute()
+    )
+
+    events = []
+    for e in results.get("items", []):
+        # 念のため「シフト」を含むタイトルのみに絞り込む
+        if "シフト" not in e.get("summary", ""):
+            continue
+        start_raw = e.get("start", {})
+        end_raw   = e.get("end",   {})
+        events.append({
+            "id":    e["id"],
+            "title": e.get("summary", ""),
+            "date":  start_raw.get("dateTime", start_raw.get("date", ""))[:10],
+            "start": _extract_time(start_raw.get("dateTime", "")),
+            "end":   _extract_time(end_raw.get("dateTime", "")),
+            "place": e.get("location", ""),
+        })
+
+    return events
+
+
+def delete_event(event_id: str, calendar_id: str = "primary") -> None:
+    """指定IDのイベントをGoogleカレンダーから削除する"""
+    creds = _get_credentials()
+
+    try:
+        service = build("calendar", "v3", credentials=creds)
+        service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+    except HttpError as e:
+        raise RuntimeError(f"イベントの削除に失敗しました: {e}") from e

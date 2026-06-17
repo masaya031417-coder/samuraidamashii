@@ -1,4 +1,4 @@
-// ContentView.swift - メイン画面（音声 / ファイル / テキスト の3モードを切り替え）
+// ContentView.swift - ボトムタブナビゲーション（登録・削除の4タブ）
 
 import SwiftUI
 
@@ -11,76 +11,74 @@ struct ContentView: View {
     @State private var selectedTab = 0
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                headerView
+        TabView(selection: $selectedTab) {
+            // タブ1: 音声入力
+            NavigationStack {
+                VoiceView(onResult: handleResult, isLoading: $isLoading)
+                    .navigationTitle("音声で登録")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { signInStatusButton }
+            }
+            .tabItem { Label("音声", systemImage: "mic.fill") }
+            .tag(0)
 
-                // 入力モード切り替えセグメントコントロール
-                Picker("入力モード", selection: $selectedTab) {
-                    Label("音声",     systemImage: "mic.fill").tag(0)
-                    Label("ファイル", systemImage: "doc.fill").tag(1)
-                    Label("テキスト", systemImage: "text.quote").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+            // タブ2: ファイル選択
+            NavigationStack {
+                FilePickerView(onResult: handleResult, isLoading: $isLoading)
+                    .navigationTitle("ファイルで登録")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { signInStatusButton }
+            }
+            .tabItem { Label("ファイル", systemImage: "doc.fill") }
+            .tag(1)
 
-                // 各入力ビュー（スワイプで切り替え可能）
-                TabView(selection: $selectedTab) {
-                    VoiceView(onResult: handleResult, isLoading: $isLoading)
-                        .tag(0)
-                    FilePickerView(onResult: handleResult, isLoading: $isLoading)
-                        .tag(1)
-                    TextInputView(onResult: handleResult, isLoading: $isLoading)
-                        .tag(2)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+            // タブ3: テキスト入力
+            NavigationStack {
+                TextInputView(onResult: handleResult, isLoading: $isLoading)
+                    .navigationTitle("テキストで登録")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { signInStatusButton }
             }
-            .navigationBarHidden(true)
-            // エラーアラート
-            .alert("エラー", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") { errorMessage = nil }
-            } message: {
-                Text(errorMessage ?? "")
-            }
-            // 結果シート
-            .sheet(isPresented: $showResult) {
-                ResultView(shifts: shifts, calendarService: calendarService)
-            }
-            // ローディングオーバーレイ
-            .overlay {
-                if isLoading { LoadingOverlay() }
-            }
+            .tabItem { Label("テキスト", systemImage: "text.quote") }
+            .tag(2)
+
+            // タブ4: 削除
+            DeleteView(calendarService: calendarService)
+                .tabItem { Label("削除", systemImage: "trash") }
+                .tag(3)
+        }
+        // 結果シート（登録確認）
+        .sheet(isPresented: $showResult) {
+            ResultView(shifts: shifts, calendarService: calendarService)
+        }
+        // ローディングオーバーレイ（読み取り中）
+        .overlay {
+            if isLoading { LoadingOverlay() }
+        }
+        // エラーアラート
+        .alert("エラー", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
         }
         .onAppear {
             calendarService.restoreSignIn()
         }
     }
 
-    // MARK: - Header
+    // MARK: - Toolbar item
 
-    private var headerView: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("シフト自動登録")
-                    .font(.title2.bold())
-                Text("PDF・画像・音声からカレンダーへ")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            // Googleサインイン状態インジケーター
+    /// ナビバー右端のGoogleサインイン状態アイコン
+    private var signInStatusButton: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
             Image(systemName: calendarService.isSignedIn
                   ? "checkmark.circle.fill"
                   : "person.crop.circle.badge.exclamationmark")
                 .foregroundStyle(calendarService.isSignedIn ? .green : .orange)
-                .font(.title2)
         }
-        .padding()
-        .background(.ultraThinMaterial)
     }
 
-    // MARK: - Callbacks
+    // MARK: - Callback
 
     private func handleResult(_ result: Result<[Shift], Error>) {
         isLoading = false
