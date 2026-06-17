@@ -175,14 +175,11 @@ struct TextInputView: View {
     // MARK: - ウィザードロジック
 
     private func startWizard() {
-        messages = []
+        step = .date
         currentInput = ""
         storedDate = ""; storedPlace = ""; storedStartTime = ""; storedEndTime = ""
-        step = .date
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            say("📅 何日ですか？\n例：6月21日、2026/6/21")
-            focused = true
-        }
+        // 最初の質問は遅延なしで即座に挿入する（asyncAfterだと描画タイミングで消えることがある）
+        messages = [ChatMsg(isApp: true, text: "📅 何日ですか？\n例：6月21日、2026/6/21")]
     }
 
     private func advance() {
