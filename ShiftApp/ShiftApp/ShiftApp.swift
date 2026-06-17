@@ -26,8 +26,14 @@ struct ShiftApp: App {
                     )
                 ) { _ in
                     guard let tab = UserDefaults.standard.value(forKey: "pendingTab") as? Int else { return }
-                    appState.selectedTab = tab
                     UserDefaults.standard.removeObject(forKey: "pendingTab")
+                    // ウィザードタブへの遷移は openWizard() 経由にする
+                    // → wizardVersion がインクリメントされ、TextInputView が再生成されて日付から始まる
+                    if tab == 2 {
+                        appState.openWizard()
+                    } else {
+                        appState.selectedTab = tab
+                    }
                 }
         }
     }
