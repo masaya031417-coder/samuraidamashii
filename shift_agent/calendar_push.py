@@ -80,9 +80,10 @@ def _build_event(shift: dict) -> dict | None:
     # タイトルを組み立て（noteが空でなければ括弧付きで追記）
     title = f"シフト（{note}）" if note else "シフト"
 
-    # ISO 8601形式の日時文字列を生成
+    # ISO 8601形式 YYYY-MM-DDTHH:MM:SS を生成
+    # start/end はすでに reader.py で HH:MM に正規化済みだが念のため秒を付与
     start_dt = f"{date}T{start}:00"
-    end_dt = f"{date}T{end}:00"
+    end_dt   = f"{date}T{end}:00"
 
     event = {
         "summary": title,

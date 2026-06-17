@@ -78,6 +78,23 @@ class CalendarService: ObservableObject {
 
     // MARK: - Private
 
+    /// 時刻文字列を HH:MM 形式に正規化する
+    /// "8:00" → "08:00", "18:00:00" → "18:00"
+    private func normalizeTime(_ t: String) -> String {
+        guard t != "変則" else { return t }
+        let parts = t.split(separator: ":").map(String.init)
+        guard parts.count >= 2,
+              let h = Int(parts[0]),
+              let m = Int(parts[1]) else { return t }
+        return String(format: "%02d:%02d", h, m)
+    }
+
+    /// 日付文字列を YYYY-MM-DD 形式に正規化する
+    /// "2026/06/21" → "2026-06-21"
+    private func normalizeDate(_ d: String) -> String {
+        d.replacingOccurrences(of: "/", with: "-")
+    }
+
     /// Google Calendar REST API でイベントを1件作成する
     private func createEvent(shift: Shift, token: String) async throws {
         guard let url = URL(string: "\(calendarBase)/calendars/primary/events") else {
@@ -87,11 +104,16 @@ class CalendarService: ObservableObject {
         // タイトルは "シフト（備考）" 形式。備考なしなら "シフト"
         let title = shift.note.isEmpty ? "シフト" : "シフト（\(shift.note)）"
 
+        // 日付・時刻を正規化してから ISO 8601 文字列を組み立てる
+        let date  = normalizeDate(shift.date)
+        let start = normalizeTime(shift.start)
+        let end   = normalizeTime(shift.end)
+
         let body: [String: Any] = [
             "summary":  title,
             "location": shift.place,
-            "start": ["dateTime": "\(shift.date)T\(shift.start):00", "timeZone": timeZone],
-            "end":   ["dateTime": "\(shift.date)T\(shift.end):00",   "timeZone": timeZone],
+            "start": ["dateTime": "\(date)T\(start):00", "timeZone": timeZone],
+            "end":   ["dateTime": "\(date)T\(end):00",   "timeZone": timeZone],
         ]
 
         var req = URLRequest(url: url)

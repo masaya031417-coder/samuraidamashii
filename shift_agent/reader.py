@@ -32,6 +32,47 @@ def _encode_file(file_path: Path) -> str:
         return base64.standard_b64encode(f.read()).decode("utf-8")
 
 
+def _normalize_time(t: str) -> str:
+    """
+    時刻文字列を HH:MM 形式に正規化する。
+    "8:00" → "08:00", "18:00:00" → "18:00", "変則" はそのまま。
+    """
+    if t == "変則":
+        return t
+    parts = t.strip().split(":")
+    if len(parts) >= 2:
+        try:
+            return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+        except ValueError:
+            pass
+    return t
+
+
+def _normalize_date(d: str) -> str:
+    """
+    日付文字列を YYYY-MM-DD 形式に正規化する。
+    "2026/06/21" → "2026-06-21"
+    """
+    return d.strip().replace("/", "-")
+
+
+def _normalize_shifts(shifts: list[dict]) -> list[dict]:
+    """
+    Claudeの返却値全体を正規化する。
+    日付・時刻フォーマットの揺れ（スラッシュ区切り・ゼロなし・秒あり）を統一。
+    """
+    return [
+        {
+            "date":  _normalize_date(s.get("date", "")),
+            "start": _normalize_time(s.get("start", "")),
+            "end":   _normalize_time(s.get("end", "")),
+            "place": s.get("place", ""),
+            "note":  s.get("note", ""),
+        }
+        for s in shifts
+    ]
+
+
 def _parse_json_response(text: str) -> list[dict]:
     """
     Claude の応答テキストからJSON配列を抽出・パースする。
@@ -48,11 +89,14 @@ def _parse_json_response(text: str) -> list[dict]:
         sys.exit(1)
 
     try:
-        return json.loads(match.group())
+        raw = json.loads(match.group())
     except json.JSONDecodeError as e:
         print(f"❌ JSONのパースに失敗しました: {e}")
         print("Claude応答（抽出部分）：", match.group()[:500])
         sys.exit(1)
+
+    # 日付・時刻フォーマットを統一してから返す
+    return _normalize_shifts(raw)
 
 
 def read_pdf(file_path: Path, name: str = "山本") -> list[dict]:
