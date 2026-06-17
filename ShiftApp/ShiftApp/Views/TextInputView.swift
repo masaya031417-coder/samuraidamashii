@@ -1,5 +1,5 @@
 // TextInputView.swift - 会話型ステップ入力ウィザード
-// 「予定を入れて」で起動 → 何日 → 場所 → 何時から → 何時まで → 確認
+// 「現在の質問は step から直接表示」「過去のQ&Aだけ履歴配列」でズレを排除
 
 import SwiftUI
 
@@ -13,12 +13,12 @@ private enum Step {
     case confirm   // 確認
 }
 
-// MARK: - Chat message
+// MARK: - History item（確定した過去のQ&Aペア）
 
-private struct ChatMsg: Identifiable {
+private struct HistoryItem: Identifiable {
     let id = UUID()
-    let isApp: Bool
-    let text: String
+    let question: String
+    let answer: String
 }
 
 // MARK: - Main view
@@ -28,58 +28,74 @@ struct TextInputView: View {
     @Binding var isLoading: Bool
 
     @StateObject private var api = APIService()
+
+    // 現在のステップ（これだけで「何を聞いているか」が決まる）
     @State private var step: Step = .date
-    // 最初の質問を初期値として直接入れておく（onAppearに頼らない）
-    @State private var messages: [ChatMsg] = [
-        ChatMsg(isApp: true, text: "📅 何日ですか？\n例：6月21日、2026/6/21")
-    ]
+    // 確定した過去のQ&Aペア
+    @State private var history: [HistoryItem] = []
     @State private var currentInput = ""
     @FocusState private var focused: Bool
 
+    // 収集した値
     @State private var storedDate      = ""
     @State private var storedPlace     = ""
     @State private var storedStartTime = ""
     @State private var storedEndTime   = ""
 
+    // step から現在の質問テキストを導出（非同期不要・常にズレない）
+    private var currentQuestion: String? {
+        switch step {
+        case .date:      return "📅 何日ですか？\n例：6月21日、2026/6/21"
+        case .place:     return "📍 場所はどこですか？\n（ない場合はそのまま次へ）"
+        case .startTime: return "🕐 何時からですか？\n例：18時、18:00"
+        case .endTime:   return "🕕 何時までですか？\n例：23時、23:00"
+        case .confirm:   return nil
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // ── チャット履歴 ──
+            // ── チャット表示エリア ──
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 14) {
-                        ForEach(messages) { msg in
-                            BubbleRow(msg: msg).id(msg.id)
+                        // 過去のQ&Aを表示
+                        ForEach(history) { item in
+                            BubbleRow(isApp: true,  text: item.question)
+                            BubbleRow(isApp: false, text: item.answer)
                         }
+
+                        // 現在の質問（stepから直接描画・asyncAfter不要）
+                        if let q = currentQuestion {
+                            BubbleRow(isApp: true, text: q)
+                                .id("currentQ")
+                        }
+
+                        // 確認カード
                         if step == .confirm {
                             confirmCard.id("confirm")
                         }
+
                         Color.clear.frame(height: 8).id("bottom")
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 14)
                 }
-                .onChange(of: messages.count) { _ in
+                // step が進んだら末尾へスクロール
+                .onChange(of: step) { _ in
                     withAnimation(.easeOut(duration: 0.25)) {
                         proxy.scrollTo("bottom", anchor: .bottom)
-                    }
-                }
-                .onChange(of: step) { s in
-                    if s == .confirm {
-                        withAnimation(.easeOut(duration: 0.25)) {
-                            proxy.scrollTo("confirm", anchor: .bottom)
-                        }
                     }
                 }
             }
 
             Divider()
 
-            // ── 入力バー ──
+            // ── 入力バー（確認ステップでは非表示）──
             if step != .confirm {
                 inputBar
             }
         }
-        // onAppear は不使用（@State 初期値で最初の質問を保証）
     }
 
     // MARK: - 入力バー
@@ -106,16 +122,15 @@ struct TextInputView: View {
     }
 
     private var canAdvance: Bool {
-        // 場所だけ空でも進める
         step == .place || !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var placeholder: String {
         switch step {
-        case .date:      return "例：6月21日、2026/6/21"
+        case .date:      return "例：6月21日"
         case .place:     return "例：グリオンアリーナ神戸（ない場合はそのまま次へ）"
-        case .startTime: return "例：18時、18:00"
-        case .endTime:   return "例：23時、23:00"
+        case .startTime: return "例：18時"
+        case .endTime:   return "例：23時"
         case .confirm:   return ""
         }
     }
@@ -132,25 +147,19 @@ struct TextInputView: View {
                 Text("以下の内容でよろしいですか？")
                     .font(.subheadline.bold())
 
-                // 入力サマリー
                 VStack(alignment: .leading, spacing: 8) {
-                    Label(storedDate,
-                          systemImage: "calendar")
+                    Label(storedDate, systemImage: "calendar")
                     Label(storedPlace.isEmpty ? "場所なし" : storedPlace,
                           systemImage: "mappin.and.ellipse")
-                    Label("\(storedStartTime) 〜 \(storedEndTime)",
-                          systemImage: "clock")
+                    Label("\(storedStartTime) 〜 \(storedEndTime)", systemImage: "clock")
                 }
                 .font(.subheadline)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
 
-                // アクションボタン
                 HStack(spacing: 10) {
-                    Button {
-                        withAnimation(.easeOut(duration: 0.2)) { startWizard() }
-                    } label: {
+                    Button { resetWizard() } label: {
                         Label("やり直す", systemImage: "arrow.counterclockwise")
                             .font(.subheadline)
                             .frame(maxWidth: .infinity)
@@ -158,7 +167,6 @@ struct TextInputView: View {
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
                             .foregroundStyle(.primary)
                     }
-
                     Button { submitToAPI() } label: {
                         Label("登録する", systemImage: "calendar.badge.plus")
                             .font(.subheadline.bold())
@@ -176,100 +184,96 @@ struct TextInputView: View {
 
     // MARK: - ウィザードロジック
 
-    private func startWizard() {
-        step = .date
-        currentInput = ""
-        storedDate = ""; storedPlace = ""; storedStartTime = ""; storedEndTime = ""
-        // 最初の質問は遅延なしで即座に挿入する（asyncAfterだと描画タイミングで消えることがある）
-        messages = [ChatMsg(isApp: true, text: "📅 何日ですか？\n例：6月21日、2026/6/21")]
-    }
-
+    /// 「次へ」ボタン。step と history だけを更新すれば画面は自動的に追従する
     private func advance() {
         let value = currentInput.trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch step {
         case .date:
             guard !value.isEmpty else { return }
+            history.append(HistoryItem(
+                question: "📅 何日ですか？\n例：6月21日、2026/6/21",
+                answer: value
+            ))
             storedDate = value
-            reply(value)
             currentInput = ""
             step = .place
-            later { say("📍 場所はどこですか？\n（ない場合はそのまま次へ）") }
 
         case .place:
+            let display = value.isEmpty ? "（場所なし）" : value
+            history.append(HistoryItem(
+                question: "📍 場所はどこですか？\n（ない場合はそのまま次へ）",
+                answer: display
+            ))
             storedPlace = value
-            reply(value.isEmpty ? "（場所なし）" : value)
             currentInput = ""
             step = .startTime
-            later { say("🕐 何時からですか？\n例：18時、18:00") }
 
         case .startTime:
             guard !value.isEmpty else { return }
+            history.append(HistoryItem(
+                question: "🕐 何時からですか？\n例：18時、18:00",
+                answer: value
+            ))
             storedStartTime = value
-            reply(value)
             currentInput = ""
             step = .endTime
-            later { say("🕕 何時までですか？\n例：23時、23:00") }
 
         case .endTime:
             guard !value.isEmpty else { return }
+            history.append(HistoryItem(
+                question: "🕕 何時までですか？\n例：23時、23:00",
+                answer: value
+            ))
             storedEndTime = value
-            reply(value)
             currentInput = ""
-            focused = false
-            later { step = .confirm }
+            step = .confirm
 
         case .confirm:
             break
         }
     }
 
+    /// 「やり直す」ボタン
+    private func resetWizard() {
+        step = .date
+        history = []
+        currentInput = ""
+        storedDate = ""; storedPlace = ""; storedStartTime = ""; storedEndTime = ""
+    }
+
+    /// Claude API にテキストを送信
     private func submitToAPI() {
-        // Claude に渡すテキスト：場所・時間の順に組み立てる
         var parts = ["日付：\(storedDate)"]
         if !storedPlace.isEmpty { parts.append("場所：\(storedPlace)") }
         parts.append("\(storedStartTime)から\(storedEndTime)まで")
-        let text = parts.joined(separator: " ")
 
         isLoading = true
         Task {
             do {
-                let shifts = try await api.parseText(text)
+                let shifts = try await api.parseText(parts.joined(separator: " "))
                 onResult(.success(shifts))
             } catch {
                 onResult(.failure(error))
             }
         }
     }
-
-    // MARK: - ヘルパー
-
-    private func say(_ text: String) {
-        messages.append(ChatMsg(isApp: true, text: text))
-    }
-
-    private func reply(_ text: String) {
-        messages.append(ChatMsg(isApp: false, text: text))
-    }
-
-    private func later(_ block: @escaping () -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: block)
-    }
 }
 
 // MARK: - 吹き出し行
 
 private struct BubbleRow: View {
-    let msg: ChatMsg
+    let isApp: Bool
+    let text: String
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            if msg.isApp {
+            if isApp {
                 Image(systemName: "calendar.circle.fill")
                     .font(.title2)
                     .foregroundStyle(.blue)
 
-                Text(msg.text)
+                Text(text)
                     .font(.body)
                     .multilineTextAlignment(.leading)
                     .padding(.horizontal, 14)
@@ -281,7 +285,7 @@ private struct BubbleRow: View {
             } else {
                 Spacer()
 
-                Text(msg.text)
+                Text(text)
                     .font(.body)
                     .multilineTextAlignment(.trailing)
                     .padding(.horizontal, 14)
@@ -291,11 +295,6 @@ private struct BubbleRow: View {
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.72, alignment: .trailing)
             }
         }
-        .transition(.asymmetric(
-            insertion: .move(edge: msg.isApp ? .leading : .trailing).combined(with: .opacity),
-            removal:   .opacity
-        ))
-        .animation(.spring(duration: 0.3), value: msg.id)
     }
 }
 
