@@ -14,6 +14,7 @@
 		SD0000000000001CAA /* TextInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SD00000000000013AA /* TextInputView.swift */; };
 		SD0000000000001DAA /* DeleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SD00000000000014AA /* DeleteView.swift */; };
 		SD0000000000001EAA /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SD00000000000015AA /* APIService.swift */; };
+		SD00000000000021AA /* GoogleCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SD00000000000020AA /* GoogleCalendarService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 		SD00000000000015AA /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
 		SD00000000000016AA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		SD00000000000017AA /* SamuraiDamashii.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SamuraiDamashii.entitlements; sourceTree = "<group>"; };
+		SD00000000000020AA /* GoogleCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +68,7 @@
 				SD00000000000013AA /* TextInputView.swift */,
 				SD00000000000014AA /* DeleteView.swift */,
 				SD00000000000015AA /* APIService.swift */,
+				SD00000000000020AA /* GoogleCalendarService.swift */,
 				SD00000000000016AA /* Info.plist */,
 				SD00000000000017AA /* SamuraiDamashii.entitlements */,
 			);
@@ -147,6 +150,7 @@
 				SD0000000000001CAA /* TextInputView.swift in Sources */,
 				SD0000000000001DAA /* DeleteView.swift in Sources */,
 				SD0000000000001EAA /* APIService.swift in Sources */,
+				SD00000000000021AA /* GoogleCalendarService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

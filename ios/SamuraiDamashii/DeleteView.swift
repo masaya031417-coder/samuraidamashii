@@ -1,18 +1,19 @@
 import SwiftUI
-import EventKit
 
 struct DeleteView: View {
-    @State private var events: [EKEvent] = []
+    @StateObject private var gcal = GoogleCalendarService.shared
+    @State private var events: [GCalEvent] = []
     @State private var isLoading = false
+    @State private var isSigningIn = false
+    @State private var pendingDelete: GCalEvent?
     @State private var errorMsg = ""
-    @State private var pendingDelete: EKEvent?
-
-    private let store = EKEventStore()
 
     var body: some View {
         NavigationView {
             Group {
-                if isLoading {
+                if !gcal.isSignedIn {
+                    signInView
+                } else if isLoading {
                     ProgressView("カレンダーを読み込み中…")
                 } else if events.isEmpty {
                     emptyState
@@ -23,8 +24,14 @@ struct DeleteView: View {
             .navigationTitle("シフト削除")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { fetchEvents() } label: {
-                        Image(systemName: "arrow.clockwise")
+                    if gcal.isSignedIn {
+                        Button { fetchEvents() } label: { Image(systemName: "arrow.clockwise") }
+                    }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if gcal.isSignedIn {
+                        Button("サインアウト") { gcal.signOut() }
+                            .foregroundColor(.red)
                     }
                 }
             }
@@ -35,86 +42,89 @@ struct DeleteView: View {
                 }
                 Button("キャンセル", role: .cancel) { pendingDelete = nil }
             } message: {
-                if let e = pendingDelete {
-                    Text(eventSummary(e))
-                }
+                if let e = pendingDelete { Text(eventSummary(e)) }
             }
             .alert(errorMsg, isPresented: .constant(!errorMsg.isEmpty)) {
                 Button("OK") { errorMsg = "" }
             }
         }
-        .onAppear { fetchEvents() }
+        .onChange(of: gcal.isSignedIn) { signed in if signed { fetchEvents() } }
+        .onAppear { if gcal.isSignedIn { fetchEvents() } }
+    }
+
+    // MARK: Sub-views
+
+    private var signInView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "person.badge.key")
+                .font(.system(size: 60)).foregroundColor(.blue)
+            Text("シフトを確認・削除するには\nGoogleサインインが必要です")
+                .multilineTextAlignment(.center).foregroundColor(.secondary)
+            Button(action: signIn) {
+                if isSigningIn { ProgressView().padding(.horizontal) }
+                else { Label("Googleでサインイン", systemImage: "person.badge.key") }
+            }
+            .buttonStyle(.borderedProminent).disabled(isSigningIn)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity).padding()
     }
 
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 52))
-                .foregroundColor(.secondary)
-            Text("シフトイベントが見つかりません")
-                .foregroundColor(.secondary)
-            Button("再読み込み", action: fetchEvents)
-                .buttonStyle(.bordered)
+                .font(.system(size: 52)).foregroundColor(.secondary)
+            Text("シフトイベントが見つかりません").foregroundColor(.secondary)
+            Button("再読み込み", action: fetchEvents).buttonStyle(.bordered)
         }
     }
 
     private var eventList: some View {
         List {
-            ForEach(events, id: \.eventIdentifier) { event in
-                ShiftEventRow(event: event) {
-                    pendingDelete = event
-                }
+            ForEach(events) { event in
+                GCalEventRow(event: event) { pendingDelete = event }
             }
         }
         .listStyle(.insetGrouped)
     }
 
-    // MARK: - Data
+    // MARK: Actions
+
+    private func signIn() {
+        isSigningIn = true
+        Task {
+            do { try await gcal.signIn() }
+            catch { await MainActor.run { errorMsg = error.localizedDescription } }
+            await MainActor.run { isSigningIn = false }
+        }
+    }
 
     private func fetchEvents() {
         isLoading = true
         Task {
-            let granted: Bool
-            if #available(iOS 17.0, *) {
-                granted = (try? await store.requestFullAccessToEvents()) ?? false
-            } else {
-                granted = await withCheckedContinuation { cont in
-                    store.requestAccess(to: .event) { ok, _ in cont.resume(returning: ok) }
-                }
+            do {
+                let fetched = try await GoogleCalendarService.shared.fetchShiftEvents()
+                await MainActor.run { events = fetched }
+            } catch {
+                await MainActor.run { errorMsg = error.localizedDescription }
             }
+            await MainActor.run { isLoading = false }
+        }
+    }
 
-            await MainActor.run {
-                defer { isLoading = false }
-                guard granted else { errorMsg = "カレンダーへのアクセスが許可されていません"; return }
-
-                let now = Date()
-                let start = Calendar.current.date(byAdding: .month, value: -3, to: now)!
-                let end   = Calendar.current.date(byAdding: .month, value: 6,  to: now)!
-                let pred  = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-
-                events = store.events(matching: pred)
-                    .filter { $0.title?.contains("シフト") == true }
-                    .sorted { $0.startDate < $1.startDate }
+    private func deleteEvent(_ event: GCalEvent) {
+        Task {
+            do {
+                try await GoogleCalendarService.shared.deleteEvent(id: event.id)
+                await MainActor.run { events.removeAll { $0.id == event.id } }
+            } catch {
+                await MainActor.run { errorMsg = error.localizedDescription }
             }
         }
     }
 
-    private func deleteEvent(_ event: EKEvent) {
-        do {
-            try store.remove(event, span: .thisEvent)
-            events.removeAll { $0.eventIdentifier == event.eventIdentifier }
-        } catch {
-            errorMsg = "削除失敗: \(error.localizedDescription)"
-        }
-    }
-
-    private func eventSummary(_ e: EKEvent) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "ja_JP")
-        f.dateFormat = "M/d(E) HH:mm"
-        let g = DateFormatter()
-        g.locale = Locale(identifier: "ja_JP")
-        g.dateFormat = "HH:mm"
+    private func eventSummary(_ e: GCalEvent) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "ja_JP"); f.dateFormat = "M/d(E) HH:mm"
+        let g = DateFormatter(); g.locale = Locale(identifier: "ja_JP"); g.dateFormat = "HH:mm"
         let loc = e.location.map { "  \($0)" } ?? ""
         return "\(f.string(from: e.startDate)) 〜 \(g.string(from: e.endDate))\(loc)"
     }
@@ -122,28 +132,24 @@ struct DeleteView: View {
 
 // MARK: - Row
 
-struct ShiftEventRow: View {
-    let event: EKEvent
+struct GCalEventRow: View {
+    let event: GCalEvent
     let onDelete: () -> Void
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(event.title ?? "シフト")
-                    .font(.headline)
+                Text(event.title).font(.headline)
                 if let loc = event.location, !loc.isEmpty {
                     Label(loc, systemImage: "mappin")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.caption).foregroundColor(.secondary)
                 }
                 Label(dateRangeString, systemImage: "clock")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.caption).foregroundColor(.secondary)
             }
             Spacer()
             Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
+                Image(systemName: "trash").foregroundColor(.red)
             }
             .buttonStyle(.plain)
         }
@@ -151,12 +157,8 @@ struct ShiftEventRow: View {
     }
 
     private var dateRangeString: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "ja_JP")
-        f.dateFormat = "M/d(E) HH:mm"
-        let g = DateFormatter()
-        g.locale = Locale(identifier: "ja_JP")
-        g.dateFormat = "HH:mm"
+        let f = DateFormatter(); f.locale = Locale(identifier: "ja_JP"); f.dateFormat = "M/d(E) HH:mm"
+        let g = DateFormatter(); g.locale = Locale(identifier: "ja_JP"); g.dateFormat = "HH:mm"
         return "\(f.string(from: event.startDate)) 〜 \(g.string(from: event.endDate))"
     }
 }
