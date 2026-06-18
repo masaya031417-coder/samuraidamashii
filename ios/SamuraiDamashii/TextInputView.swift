@@ -1,4 +1,5 @@
 import SwiftUI
+import EventKit
 
 // MARK: - Step
 
@@ -19,68 +20,34 @@ enum WizardStep: Int, CaseIterable {
 // MARK: - View
 
 struct TextInputView: View {
-    @StateObject private var gcal = GoogleCalendarService.shared
     @State private var step: WizardStep = .date
     @State private var selectedDate = Date()
     @State private var location = ""
     @State private var startTime = Date()
     @State private var endTime: Date = Calendar.current.date(byAdding: .hour, value: 8, to: Date()) ?? Date()
-    @State private var isWorking = false
+    @State private var isCreating = false
     @State private var showSuccess = false
     @State private var errorMsg = ""
+
+    private let store = EKEventStore()
 
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                if !gcal.isSignedIn {
-                    signInBanner
-                } else {
-                    progressBar.padding()
-                    ScrollView {
-                        stepContent.padding().animation(.easeInOut, value: step)
-                    }
-                    navButtons.padding()
+                progressBar.padding()
+                ScrollView {
+                    stepContent.padding().animation(.easeInOut, value: step)
                 }
+                navButtons.padding()
             }
             .navigationTitle("予定を入れる")
-            .alert("Googleカレンダーに登録しました", isPresented: $showSuccess) {
+            .alert("カレンダーに登録しました", isPresented: $showSuccess) {
                 Button("OK") { resetWizard() }
             }
             .alert(errorMsg, isPresented: .constant(!errorMsg.isEmpty)) {
                 Button("OK") { errorMsg = "" }
             }
         }
-    }
-
-    // MARK: Sign-in banner
-
-    private var signInBanner: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
-            Text("Googleカレンダーに予定を登録するには\nサインインが必要です")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-            Button(action: {
-                isWorking = true
-                Task {
-                    do { try await gcal.signIn() }
-                    catch { await MainActor.run { errorMsg = error.localizedDescription } }
-                    await MainActor.run { isWorking = false }
-                }
-            }) {
-                if isWorking {
-                    ProgressView().padding(.horizontal)
-                } else {
-                    Label("Googleでサインイン", systemImage: "person.badge.key")
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isWorking)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
     }
 
     // MARK: Progress bar
@@ -121,8 +88,7 @@ struct TextInputView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("場所を入力してください").font(.headline)
                 TextField("例：渋谷店・倉庫A（省略可）", text: $location)
-                    .textFieldStyle(.roundedBorder)
-                    .submitLabel(.done)
+                    .textFieldStyle(.roundedBorder).submitLabel(.done)
             }
         case .startTime:
             VStack(alignment: .leading, spacing: 12) {
@@ -142,22 +108,15 @@ struct TextInputView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("内容を確認してください").font(.headline)
                 VStack(spacing: 0) {
-                    confirmRow("calendar",             "日付",   fmtDate(selectedDate))
+                    confirmRow("calendar",              "日付",   fmtDate(selectedDate))
                     Divider()
-                    confirmRow("mappin.and.ellipse",   "場所",   location.isEmpty ? "（未設定）" : location)
+                    confirmRow("mappin.and.ellipse",    "場所",   location.isEmpty ? "（未設定）" : location)
                     Divider()
-                    confirmRow("clock",                "開始時間", fmtTime(startTime))
+                    confirmRow("clock",                 "開始時間", fmtTime(startTime))
                     Divider()
-                    confirmRow("clock.badge.checkmark","終了時間", fmtTime(endTime))
+                    confirmRow("clock.badge.checkmark", "終了時間", fmtTime(endTime))
                 }
                 .background(Color(.systemGray6)).cornerRadius(12)
-
-                HStack {
-                    Image(systemName: "calendar.badge.checkmark")
-                        .foregroundColor(.green)
-                    Text("Googleカレンダーに登録します")
-                        .font(.caption).foregroundColor(.secondary)
-                }
             }
         }
     }
@@ -182,13 +141,10 @@ struct TextInputView: View {
             Spacer()
             if step == .confirmation {
                 Button(action: createEvent) {
-                    if isWorking {
-                        ProgressView().padding(.horizontal)
-                    } else {
-                        Label("Googleカレンダーに登録", systemImage: "calendar.badge.plus")
-                    }
+                    if isCreating { ProgressView().padding(.horizontal) }
+                    else { Label("カレンダーに登録", systemImage: "calendar.badge.plus") }
                 }
-                .buttonStyle(.borderedProminent).disabled(isWorking)
+                .buttonStyle(.borderedProminent).disabled(isCreating)
             } else {
                 Button("次へ") { withAnimation { step = WizardStep(rawValue: step.rawValue + 1) ?? .confirmation } }
                     .buttonStyle(.borderedProminent)
@@ -196,24 +152,47 @@ struct TextInputView: View {
         }
     }
 
-    // MARK: Create event
+    // MARK: EventKit
 
     private func createEvent() {
-        isWorking = true
+        isCreating = true
         Task {
-            do {
-                try await GoogleCalendarService.shared.createShiftEvent(
-                    date: selectedDate,
-                    location: location,
-                    startTime: startTime,
-                    endTime: endTime
-                )
-                await MainActor.run { showSuccess = true }
-            } catch {
-                await MainActor.run { errorMsg = error.localizedDescription }
+            let granted: Bool
+            if #available(iOS 17.0, *) {
+                granted = (try? await store.requestWriteOnlyAccessToEvents()) ?? false
+            } else {
+                granted = await withCheckedContinuation { cont in
+                    store.requestAccess(to: .event) { ok, _ in cont.resume(returning: ok) }
+                }
             }
-            await MainActor.run { isWorking = false }
+
+            await MainActor.run {
+                defer { isCreating = false }
+                guard granted else { errorMsg = "カレンダーへのアクセスが許可されていません"; return }
+
+                let event = EKEvent(eventStore: store)
+                event.title     = "シフト"
+                event.calendar  = store.defaultCalendarForNewEvents
+                event.startDate = combine(selectedDate, startTime)
+                event.endDate   = combine(selectedDate, endTime)
+                if !location.isEmpty { event.location = location }
+
+                do {
+                    try store.save(event, span: .thisEvent)
+                    showSuccess = true
+                } catch {
+                    errorMsg = "登録失敗: \(error.localizedDescription)"
+                }
+            }
         }
+    }
+
+    private func combine(_ date: Date, _ time: Date) -> Date {
+        let cal = Calendar.current
+        var d = cal.dateComponents([.year, .month, .day], from: date)
+        let t = cal.dateComponents([.hour, .minute], from: time)
+        d.hour = t.hour; d.minute = t.minute
+        return cal.date(from: d) ?? date
     }
 
     private func resetWizard() {
@@ -221,8 +200,6 @@ struct TextInputView: View {
         startTime = Date()
         endTime = Calendar.current.date(byAdding: .hour, value: 8, to: Date()) ?? Date()
     }
-
-    // MARK: Formatting
 
     private func fmtDate(_ d: Date) -> String {
         let f = DateFormatter(); f.locale = Locale(identifier: "ja_JP"); f.dateStyle = .long
