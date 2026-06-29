@@ -1,507 +1,324 @@
-<!-- redeploy -->
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>侍魂 | Spirit of the Samurai</title>
-    <meta name="description" content="日本の工芸・食・作法・儀礼・経営哲学に通底する精神を、事実と文脈に基づいて言語化し、世界に届ける。侍魂 — Spirit of the Samurai。" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>English Conversation Practice</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <!-- Fonts (system-friendly, Japanese-first) -->
-    <style>
-        :root{
-            --ink:#0b0b0c;
-            --paper:#f7f2e8;
-            --paper2:#f3ede1;
-            --line:rgba(11,11,12,.18);
-            --muted:rgba(11,11,12,.72);
-            --muted2:rgba(11,11,12,.58);
-            --white:rgba(255,255,255,.78);
-            --shadow:rgba(0,0,0,.08);
-            --vermilion:#a11c1c;   /* 朱に寄せた赤 */
-            --gold:#b08a3a;        /* 金のニュアンス */
-        }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-        *{ box-sizing:border-box; }
-        body{
-            margin:0;
-            font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-            color:var(--ink);
-            background:
-                radial-gradient(1200px 800px at 20% 0%, rgba(161,28,28,.08), transparent 60%),
-                radial-gradient(900px 700px at 90% 20%, rgba(176,138,58,.10), transparent 55%),
-                linear-gradient(180deg, var(--paper) 0%, var(--paper2) 60%, var(--paper) 100%);
-            line-height:1.95;
-        }
+    header {
+      width: 100%;
+      max-width: 720px;
+      padding: 20px 24px 12px;
+      border-bottom: 1px solid #1e293b;
+    }
 
-        /* subtle paper texture */
-        body:before{
-            content:"";
-            position:fixed;
-            inset:0;
-            pointer-events:none;
-            background:
-                repeating-linear-gradient(0deg, rgba(0,0,0,.018), rgba(0,0,0,.018) 1px, transparent 1px, transparent 7px),
-                repeating-linear-gradient(90deg, rgba(0,0,0,.012), rgba(0,0,0,.012) 1px, transparent 1px, transparent 9px);
-            mix-blend-mode:multiply;
-            opacity:.22;
-        }
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
 
-        header{
-            position:relative;
-            padding:74px 20px 56px;
-            background:
-                radial-gradient(900px 520px at 50% 0%, rgba(255,255,255,.08), transparent 60%),
-                linear-gradient(180deg, #141416 0%, #0c0c0e 100%);
-            color:#fff;
-            overflow:hidden;
-            border-bottom:1px solid rgba(255,255,255,.12);
-        }
+    header p {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
 
-        /* crest-like circle */
-        header:before{
-            content:"";
-            position:absolute;
-            width:540px; height:540px;
-            border-radius:999px;
-            left:50%; top:-310px;
-            transform:translateX(-50%);
-            background:
-                radial-gradient(circle at 50% 55%, rgba(255,255,255,.08), transparent 58%),
-                conic-gradient(from 180deg, rgba(161,28,28,.45), rgba(176,138,58,.25), rgba(161,28,28,.45));
-            filter:blur(.3px);
-            opacity:.55;
-        }
+    #chat-area {
+      flex: 1;
+      width: 100%;
+      max-width: 720px;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
 
-        .wrap{
-            max-width:1040px;
-            margin:0 auto;
-            padding:0 20px;
-            position:relative;
-            z-index:1;
-        }
+    .message {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      animation: fadeIn 0.2s ease;
+    }
 
-        .title{
-            display:flex;
-            align-items:flex-end;
-            gap:16px;
-            flex-wrap:wrap;
-        }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-        .mark{
-            width:44px; height:44px;
-            border-radius:999px;
-            border:1px solid rgba(255,255,255,.28);
-            display:grid;
-            place-items:center;
-            color:#fff;
-            font-weight:700;
-            letter-spacing:.08em;
-            position:relative;
-        }
-        .mark:after{
-            content:"";
-            position:absolute;
-            width:22px; height:22px;
-            border-radius:999px;
-            border:1px solid rgba(255,255,255,.26);
-        }
+    .message.user {
+      align-self: flex-end;
+      background: #3b82f6;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
 
-        h1{
-            margin:0;
-            font-size:44px;
-            letter-spacing:.08em;
-            line-height:1.15;
-        }
+    .message.ai {
+      align-self: flex-start;
+      background: #1e293b;
+      color: #e2e8f0;
+      border-bottom-left-radius: 4px;
+    }
 
-        .subtitle{
-            margin:14px 0 0;
-            max-width:980px;
-            color:rgba(255,255,255,.86);
-            font-size:16.5px;
-            letter-spacing:.03em;
-        }
+    .message.thinking {
+      align-self: flex-start;
+      background: #1e293b;
+      color: #64748b;
+      font-style: italic;
+    }
 
-        .tagline{
-            margin-top:16px;
-            display:inline-flex;
-            gap:10px;
-            flex-wrap:wrap;
-            align-items:center;
-            color:rgba(255,255,255,.82);
-            font-size:13px;
-        }
-        .chip{
-            border:1px solid rgba(255,255,255,.18);
-            padding:6px 10px;
-            border-radius:999px;
-            background:rgba(255,255,255,.06);
-        }
+    #controls {
+      width: 100%;
+      max-width: 720px;
+      padding: 16px 24px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
 
-        main{
-            max-width:1040px;
-            margin:0 auto;
-            padding:38px 20px 44px;
-            position:relative;
-            z-index:1;
-        }
+    #status {
+      font-size: 0.82rem;
+      color: #64748b;
+      min-height: 1.2em;
+      text-align: center;
+    }
 
-        .panel{
-            background:var(--white);
-            border:1px solid var(--line);
-            border-radius:18px;
-            box-shadow:0 18px 46px var(--shadow);
-            padding:22px 20px;
-        }
+    #mic-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      background: #3b82f6;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+      box-shadow: 0 4px 24px rgba(59,130,246,0.35);
+    }
 
-        .grid{
-            display:grid;
-            grid-template-columns:repeat(12,1fr);
-            gap:14px;
-            margin-top:14px;
-        }
-        .card{
-            grid-column:span 12;
-            background:rgba(255,255,255,.88);
-            border:1px solid var(--line);
-            border-radius:18px;
-            padding:18px 18px;
-            box-shadow:0 16px 42px var(--shadow);
-        }
-        @media(min-width:920px){
-            .card.half{ grid-column:span 6; }
-            .card.third{ grid-column:span 4; }
-        }
+    #mic-btn:hover { background: #2563eb; }
+    #mic-btn:active { transform: scale(0.94); }
 
-        h2{
-            margin:34px 0 10px;
-            font-size:18px;
-            letter-spacing:.04em;
-            display:flex;
-            align-items:center;
-            gap:10px;
-        }
-        h2:before{
-            content:"";
-            width:10px;
-            height:10px;
-            border-radius:2px;
-            background:var(--vermilion);
-            box-shadow:0 0 0 3px rgba(161,28,28,.14);
-            flex:none;
-        }
+    #mic-btn.recording {
+      background: #ef4444;
+      animation: pulse 1.2s infinite;
+      box-shadow: 0 4px 24px rgba(239,68,68,0.45);
+    }
 
-        .jp{
-            margin:10px 0 6px;
-            font-size:15.8px;
-        }
-        .en{
-            margin:0 0 14px;
-            font-size:14.2px;
-            color:var(--muted);
-            font-style:italic;
-        }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.08); }
+    }
 
-        .rule{
-            height:1px;
-            background:linear-gradient(90deg, transparent, rgba(11,11,12,.22), transparent);
-            margin:16px 0 6px;
-        }
+    #mic-btn svg { width: 30px; height: 30px; }
 
-        .label{
-            display:inline-block;
-            font-size:12px;
-            letter-spacing:.10em;
-            padding:6px 10px;
-            border-radius:999px;
-            border:1px solid rgba(11,11,12,.18);
-            background:rgba(0,0,0,.02);
-            color:rgba(11,11,12,.78);
-            margin-bottom:10px;
-        }
+    #transcript-preview {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      min-height: 1.2em;
+      text-align: center;
+      max-width: 480px;
+    }
 
-        ul{ margin:10px 0 0 18px; padding:0; }
-        li{ margin:6px 0; }
-
-        .btnrow{
-            display:flex;
-            flex-wrap:wrap;
-            gap:10px;
-            margin-top:10px;
-        }
-
-        a.button{
-            display:inline-block;
-            text-decoration:none;
-            padding:12px 14px;
-            border-radius:14px;
-            border:1px solid rgba(11,11,12,.22);
-            color:var(--ink);
-            background:rgba(255,255,255,.92);
-        }
-
-        a.button.primary{
-            background:linear-gradient(180deg, #141416 0%, #0c0c0e 100%);
-            color:#fff;
-            border-color:rgba(255,255,255,.12);
-            position:relative;
-            overflow:hidden;
-        }
-        a.button.primary:before{
-            content:"";
-            position:absolute;
-            inset:-2px;
-            background:linear-gradient(90deg, transparent, rgba(161,28,28,.35), transparent);
-            transform:translateX(-60%);
-            transition:transform .6s ease;
-            opacity:.55;
-        }
-        a.button.primary:hover:before{ transform:translateX(60%); }
-
-        .note{
-            color:var(--muted2);
-            font-size:13px;
-            margin-top:10px;
-        }
-
-        .sources{
-            margin-top:26px;
-            padding-top:16px;
-            border-top:1px solid var(--line);
-            font-size:13px;
-            color:var(--muted);
-        }
-        .sources a{
-            color:var(--muted);
-            text-decoration:underline;
-            text-underline-offset:2px;
-        }
-
-        footer{
-            margin-top:26px;
-            padding:22px 0 8px;
-            text-align:center;
-            color:var(--muted2);
-            font-size:12.8px;
-        }
-
-        .smallcaps{
-            letter-spacing:.14em;
-            font-size:12px;
-            text-transform:uppercase;
-            opacity:.78;
-        }
-    </style>
+    #error-banner {
+      display: none;
+      background: #7f1d1d;
+      color: #fca5a5;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      text-align: center;
+      width: 100%;
+    }
+  </style>
 </head>
-
 <body>
-    <header>
-        <div class="wrap">
-            <div class="title">
-                <div class="mark">侍</div>
-                <h1>侍魂</h1>
-                <div class="smallcaps">Spirit of the Samurai</div>
-            </div>
-            <p class="subtitle">伝統は、保存ではない。更新され続ける「生きた遺産」だ。</p>
-            <div class="tagline">
-                <span class="chip">工芸 / Craft</span>
-                <span class="chip">食 / Food</span>
-                <span class="chip">作法 / Etiquette</span>
-                <span class="chip">儀礼 / Rituals</span>
-                <span class="chip">経営哲学 / Philosophy</span>
-            </div>
-        </div>
-    </header>
 
-    <main>
-        <section class="panel">
-            <span class="label">Introduction / 序</span>
+<header>
+  <h1>English Conversation Practice</h1>
+  <p>Tap the mic and speak — Gemma will reply in English</p>
+</header>
 
-            <p class="jp">
-                日本の文化や歴史は、博物館に閉じ込められた"静的な過去"ではありません。<br>
-                食、工芸、作法、儀礼、そして組織の運営にまで、いまも息づき、時代の要請に応じて姿を変わらながら継承され続ける——それが「生きた遺産」です。
-            </p>
-            <p class="en">
-                Japanese culture is not a static relic preserved behind glass. It is a living heritage—embedded in food, crafts, etiquette, rituals, and organizational life—continuously adapting while carrying its core values forward.
-            </p>
+<div id="chat-area"></div>
 
-            <p class="jp">
-                このサイト「侍魂」は、日本の作品や技術を"称賛"するだけの場所ではありません。<br>
-                作品の背後にある精神——判断軸・美意識・責任感・継承の作法——を、事実と文脈に基づいて言語化し、世界に届けるための編集室です。
-            </p>
-            <p class="en">
-                Spirit of the Samurai is not merely a place for admiration. It is an editorial room that articulates the invisible foundations behind Japanese works—judgment, aesthetics, responsibility, and continuity—grounded in evidence and context.
-            </p>
+<div id="controls">
+  <div id="error-banner"></div>
+  <div id="transcript-preview"></div>
+  <button id="mic-btn" title="Tap to speak">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v7a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 17.93V23h2v-2.07A8 8 0 0 0 20 13h-2a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.93z"/>
+    </svg>
+  </button>
+  <div id="status">Tap the mic to start speaking</div>
+</div>
 
-            <p class="jp">
-                そして最も大切にするのは、誠実さです。<br>
-                断定するときは根拠（出典）を示し、まだ確認できていないものは「未確認」と明記します。推測で穴埋めはしません。
-            </p>
-            <p class="en">
-                Our guiding principle is integrity: we cite sources when we assert, and we label what remains unverified as "unconfirmed." We do not fill gaps with speculation.
-            </p>
+<script>
+  const chatArea = document.getElementById('chat-area');
+  const micBtn = document.getElementById('mic-btn');
+  const statusEl = document.getElementById('status');
+  const transcriptEl = document.getElementById('transcript-preview');
+  const errorBanner = document.getElementById('error-banner');
 
-            <div class="btnrow">
-                <a class="button primary" href="/archive/">作品アーカイブ</a>
-                <a class="button" href="#">魂の辞典（準備中）</a>
-                <a class="button" href="#">研究ノート（準備中）</a>
-            </div>
-            <div class="note">
-                ※いまはトップだけ公開してOK。次にページを増やしたら、上のリンクを接続します。
-            </div>
-        </section>
+  let history = [];
+  let recognition = null;
+  let isRecording = false;
 
-        <h2>侍魂とは何か</h2>
-        <section class="card">
-            <p class="jp">
-                侍魂とは、戦いの物語ではありません。<br>
-                自らを律し、責任を引き受け、目の前の相手と場に対して最善を尽くす——その「覚悟」を指す言葉として、ここでは扱います。
-            </p>
-            <p class="en">
-                Here, "samurai spirit" is not a tale of combat. It means discipline, accountability, and a resolve to do what is best for the person and the moment in front of you.
-            </p>
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-            <p class="jp">
-                それは、工芸であれば「素材と工程に対する誠実さ」として、食であれば「季節と命への敬意」として、作法であれば「相手を傷つけない設計」として現れます。<br>
-                つまり侍魂は、抽象的な精神論ではなく、具体的な行動規範として読み解けます。
-            </p>
-            <p class="en">
-                It appears as honesty toward materials and processes in craft, reverence for season and life in food, and considerate design that avoids harm in etiquette. In other words, it can be read as concrete behavioral principles—not mere abstraction.
-            </p>
-        </section>
+  if (!SpeechRecognition) {
+    showError('Your browser does not support the Web Speech API. Please use Chrome or Edge.');
+    micBtn.disabled = true;
+  } else {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
-        <h2>このサイトが扱う領域</h2>
-        <section class="grid">
-            <div class="card third">
-                <span class="label">工芸 / Craft</span>
-                <p class="jp">
-                    作品を見て終わらせず、工程・分業・道具・手入れまで追います。<br>
-                    「なぜその作り方なのか」を、構造として残します。
-                </p>
-                <p class="en">
-                    We go beyond the finished piece and trace process, specialization, tools, and maintenance—preserving "why it is made this way" as structure.
-                </p>
-            </div>
+    recognition.onstart = () => {
+      isRecording = true;
+      micBtn.classList.add('recording');
+      statusEl.textContent = 'Listening…';
+      transcriptEl.textContent = '';
+    };
 
-            <div class="card third">
-                <span class="label">食 / Food Culture</span>
-                <p class="jp">
-                    味の話だけではなく、季節・地域・保存・発酵など、生活を支えた知恵として読み解きます。<br>
-                    食は、自然観と倫理の表現でもあります。
-                </p>
-                <p class="en">
-                    We read food not only as taste, but as wisdom for living—seasonality, locality, preservation, fermentation—also an expression of worldview and ethics.
-                </p>
-            </div>
+    recognition.onresult = (event) => {
+      let interim = '';
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t;
+        else interim += t;
+      }
+      transcriptEl.textContent = final || interim;
+    };
 
-            <div class="card third">
-                <span class="label">作法・儀礼 / Etiquette & Rituals</span>
-                <p class="jp">
-                    作法や儀礼は、形式ではなく"関係を壊さない技術"です。<br>
-                    個人と共同体をつなぐ設計として扱います。
-                </p>
-                <p class="en">
-                    Etiquette and rituals are not mere form; they are techniques that protect relationships—designs connecting individuals and community.
-                </p>
-            </div>
+    recognition.onerror = (event) => {
+      stopRecording();
+      if (event.error !== 'no-speech') {
+        showError('Speech recognition error: ' + event.error);
+      }
+    };
 
-            <div class="card half">
-                <span class="label">技術 / Technique</span>
-                <p class="jp">
-                    伝統の核心は「固定」ではなく「更新」です。<br>
-                    何を変えず、何を変えるのか——その判断が技術を未来へ運びます。ここでは、変化を否定せずに、本質を守る仕組みを追います。
-                </p>
-                <p class="en">
-                    The core of tradition is not rigidity but renewal: what must remain, and what may evolve. We track mechanisms that preserve essence without denying change.
-                </p>
-            </div>
+    recognition.onend = () => {
+      const text = transcriptEl.textContent.trim();
+      stopRecording();
+      if (text) {
+        sendMessage(text);
+      } else {
+        statusEl.textContent = 'No speech detected. Tap to try again.';
+      }
+    };
+  }
 
-            <div class="card half">
-                <span class="label">経営哲学 / Management Philosophy</span>
-                <p class="jp">
-                    文化は、組織の意思決定にも現れます。<br>
-                    誠実さ、責任、他者への配慮——それが理念として言語化され、現場の行動へ落ちるまでの構造を扱います。
-                </p>
-                <p class="en">
-                    Culture also appears in organizational decisions. We examine how integrity, responsibility, and care for others become articulated principles and translate into everyday action.
-                </p>
-            </div>
-        </section>
+  function stopRecording() {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+  }
 
-        <h2>編集方針（"内容が濃い"とは何か）</h2>
-        <section class="card">
-            <p class="jp">
-                ここでいう「濃い」とは、情報量が多いことではありません。<br>
-                読み手が再現できるレベルまで、「背景 → 仕組み → 行動 → 価値」をつなげて書くことです。
-            </p>
-            <p class="en">
-                "Depth" here does not mean sheer volume. It means linking background → mechanism → behavior → value, with enough clarity that readers can reproduce the understanding.
-            </p>
+  function showError(msg) {
+    errorBanner.textContent = msg;
+    errorBanner.style.display = 'block';
+    setTimeout(() => { errorBanner.style.display = 'none'; }, 5000);
+  }
 
-            <div class="rule"></div>
+  function hideError() {
+    errorBanner.style.display = 'none';
+  }
 
-            <p class="jp"><strong>このサイトが必ず含める要素</strong></p>
-            <p class="en"><strong>What every entry will include</strong></p>
+  function addMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+    div.textContent = text;
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+    return div;
+  }
 
-            <ul>
-                <li class="jp">何を扱うのか（対象の定義）</li>
-                <li class="en">What it is (a clear definition of the subject)</li>
+  micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      hideError();
+      try {
+        recognition.start();
+      } catch (e) {
+        showError('Could not start microphone: ' + e.message);
+      }
+    }
+  });
 
-                <li class="jp">いつ・どこで・なぜ必要になったのか（背景）</li>
-                <li class="en">When/where/why it emerged (context)</li>
+  async function sendMessage(text) {
+    transcriptEl.textContent = '';
+    statusEl.textContent = 'Thinking…';
+    addMessage('user', text);
 
-                <li class="jp">どうやって成立しているのか（工程・分業・制度・共同体などの仕組み）</li>
-                <li class="en">How it works (process, specialization, institutions, community mechanisms)</li>
+    const thinking = addMessage('thinking', 'Gemma is typing…');
 
-                <li class="jp">その結果、どんな価値観が"行動規範"として残るのか（魂の言語化）</li>
-                <li class="en">Which values remain as behavioral principles (articulating the "spirit")</li>
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history }),
+      });
 
-                <li class="jp">出典（公式・一次に近い情報を優先）／未確認の明記</li>
-                <li class="en">Sources (prioritizing official/primary-like references) and clear "unconfirmed" labels</li>
-            </ul>
-        </section>
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || res.statusText);
+      }
 
-        <h2>公的枠組みを参照する理由</h2>
-        <section class="card">
-            <p class="jp">
-                日本の伝統を語るとき、感動だけで書くと"物語"になります。物語は人を動かしますが、誤りも生みます。<br>
-                だからこのサイトは、公的な枠組み（制度・文化財の説明・国際機関の記録など）を「確認の土台」として使います。
-            </p>
-            <p class="en">
-                If we rely only on emotion, we create stories—powerful, but prone to error. This site uses public frameworks (institutions, cultural heritage documentation, international records) as a base for verification.
-            </p>
+      const data = await res.json();
+      const reply = data.reply;
 
-            <div class="sources">
-                <p class="jp"><strong>参考（公式）</strong></p>
-                <p class="en"><strong>References (official)</strong></p>
-                <ul>
-                    <li>
-                        <span class="jp">経済産業省：伝統的工芸品（制度）</span><br>
-                        <a href="https://www.meti.go.jp/policy/mono_info_service/mono/nichiyo-densan/index.html" target="_blank" rel="noopener">
-                            https://www.meti.go.jp/policy/mono_info_service/mono/nichiyo-densan/index.html
-                        </a>
-                    </li>
-                    <li>
-                        <span class="jp">文化庁：無形文化財（「わざ」）</span><br>
-                        <a href="https://www.bunka.go.jp/seisaku/bunkazai/shokai/mukei/" target="_blank" rel="noopener">
-                            https://www.bunka.go.jp/seisaku/bunkazai/shokai/mukei/
-                        </a>
-                    </li>
-                    <li>
-                        <span class="jp">UNESCO：Washoku（2013年記載）</span><br>
-                        <a href="https://ich.unesco.org/en/RL/washoku-traditional-dietary-cultures-of-the-japanese-notably-for-the-celebration-of-new-year-00869" target="_blank" rel="noopener">
-                            https://ich.unesco.org/en/RL/washoku-traditional-dietary-cultures-of-the-japanese-notably-for-the-celebration-of-new-year-00869
-                        </a>
-                    </li>
-                </ul>
-                <p class="note jp">※各テーマ記事では、ここに加えて個別の出典を積み上げます。</p>
-                <p class="note en">Each entry will add subject-specific sources beyond these baseline references.</p>
-            </div>
-        </section>
+      thinking.remove();
+      addMessage('ai', reply);
 
-        <footer>
-            © 2026 侍魂 — Spirit of the Samurai
-        </footer>
-    </main>
+      history.push({ role: 'user', content: text });
+      history.push({ role: 'model', content: reply });
+
+      speak(reply);
+      statusEl.textContent = 'Tap the mic to continue';
+    } catch (err) {
+      thinking.remove();
+      showError('Error: ' + err.message);
+      statusEl.textContent = 'Tap the mic to try again';
+    }
+  }
+
+  function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-US';
+    utt.rate = 0.95;
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.lang.startsWith('en') && v.localService)
+                   || voices.find(v => v.lang.startsWith('en'));
+    if (preferred) utt.voice = preferred;
+
+    window.speechSynthesis.speak(utt);
+  }
+
+  window.speechSynthesis && window.speechSynthesis.addEventListener('voiceschanged', () => {});
+</script>
 </body>
 </html>
