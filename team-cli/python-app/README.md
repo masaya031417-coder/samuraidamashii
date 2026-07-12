@@ -1,40 +1,36 @@
-# AI会社チーム Web（Python版・インストール不要）
+# AI会社チーム Web（インストール最小・自己診断つき）
 
 11人のAIキャラクターが議論するWebアプリ。
-**Flask等の追加インストール不要** — Python本体と `claude` コマンド（Claude Code）だけで動きます。
-APIキーも不要（Claude Codeのログイン＝Proサブスクで動作）。
+**追加ライブラリのインストール不要**（Python標準ライブラリのみ）。
+**APIキーも不要**（Claude Code のログイン＝Proサブスクで動作）。
 
-## セットアップ（3ステップ）
+## 必要なもの（2つだけ）
 
-1. **ファイルを配置**
-   `app.py` と `AI_Team_Web.vbs` を `C:\Users\masay\AITeamWeb\` に置く。
+1. **Python**（3.7以上） … https://www.python.org/downloads/
+   ※インストール時「Add Python to PATH」に必ずチェック
+2. **Claude Code**（`claude` コマンド） … `npm install -g @anthropic-ai/claude-code`
+   ※ `claude --version` が動けばOK
 
-2. **Claude Code が入っているか確認**
-   コマンドプロンプトで `claude --version` が動けばOK。
-   （未インストールなら `npm install -g @anthropic-ai/claude-code`）
+## 使い方
 
-3. **`AI_Team_Web.vbs` をダブルクリック**
-   → サーバーが起動してブラウザが開きます。
+1. `AIチーム.bat` をダブルクリックするだけ。
+2. 黒い画面が開き、Python と claude を自動チェック → app.py を最新版に更新 → サーバー起動 → ブラウザが開きます。
 
-## うまくいかないとき
+`AIチーム.bat` は**毎回GitHubから最新の app.py を自動ダウンロード**します。
+一度置けば、以後の更新でファイルを差し替える必要はありません。
 
-「could not start」が出たら、コマンドプロンプトで直接起動してエラーを確認：
+## 「動かない」ときは
 
-```cmd
-"C:\Users\masay\AppData\Local\Programs\Python\Python310\python.exe" "C:\Users\masay\AITeamWeb\app.py"
-```
-
-- 赤いエラーが出る → その内容を確認
-- `🚀 起動！` と出て `http://localhost:5000` が開ければ成功
-
-## スマホから使う
-
-同じWiFiなら、サーバー起動中にスマホのブラウザで
-`http://（PCのIPアドレス）:5000` を開く。
-音声入力（🎤）・読み上げ（🔊）にも対応。
+`AIチーム.bat` は**黒い画面が閉じずに残り、何が足りないかを日本語で表示**します。
+表示された内容（`[X] Python が見つかりません` 等）に従ってください。それでも分からなければ、その画面をそのまま共有してください。
 
 ## 中身
 
+- `AIチーム.bat` … ダブルクリック用ランチャー（自己診断＋自動更新）
 - `app.py` … Python標準ライブラリのみのWebサーバー（SSEストリーミング）
-- `AI_Team_Web.vbs` … ダブルクリック用ランチャー
 - `requirements.txt` … 依存なし（説明のみ）
+
+## スマホから使う
+
+同じWiFiなら、起動中にスマホのブラウザで `http://（PCのIPアドレス）:5000` を開く。
+音声入力（🎤）・読み上げ（🔊）対応。
