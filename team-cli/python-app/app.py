@@ -1,12 +1,35 @@
 #!/usr/bin/env python3
-"""AI会社チーム Web Server - Python/Flask版 (claude -p で動作、APIキー不要)"""
+"""AI会社チーム Web Server - Python標準ライブラリのみ (claude -p で動作、APIキー不要)
+
+Flask等のインストール不要。Python本体と `claude` コマンドだけで動きます。
+"""
 
 import subprocess
 import json
 import time
-from flask import Flask, request, Response
+import os
+import shutil
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-app = Flask(__name__)
+
+def _find_claude():
+    """claude 実行ファイルを探す。Windowsでは claude.cmd も見つける。"""
+    exe = shutil.which("claude")
+    if exe:
+        return exe
+    # よくあるnpmグローバルbinのパスを念のため探索
+    for candidate in (
+        os.path.expandvars(r"%APPDATA%\npm\claude.cmd"),
+        os.path.expanduser("~/.npm-global/bin/claude"),
+        "/usr/local/bin/claude",
+    ):
+        if os.path.exists(candidate):
+            return candidate
+    return "claude"  # 最後の望み（PATHに任せる）
+
+
+CLAUDE_BIN = _find_claude()
 
 # ─── キャラクター定義 ───────────────────────────────────────────────────────
 
@@ -197,14 +220,27 @@ def call_claude_stream(system_prompt, user_message, context=""):
 
     full_prompt = f"{system_section}\n\n---\n\n{user_section}"
 
+    # プロンプトはstdin経由で渡す（Windowsのコマンドライン長制限・特殊文字問題を回避）
     proc = subprocess.Popen(
-        ["claude", "-p", full_prompt],
+        [CLAUDE_BIN, "-p"],
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
+
+    # stdinへの書き込みは別スレッド（大きなプロンプトでデッドロックしないように）
+    def _feed():
+        try:
+            proc.stdin.write(full_prompt)
+            proc.stdin.close()
+        except Exception:
+            pass
+
+    threading.Thread(target=_feed, daemon=True).start()
+
     for chunk in proc.stdout:
         yield chunk
     proc.wait()
@@ -258,7 +294,7 @@ def generate_sse(question, mode):
     yield sse({"type": "summary_end"})
     yield sse({"type": "done"})
 
-# ─── Flask ルート ─────────────────────────────────────────────────────────────
+# ─── HTMLページ ──────────────────────────────────────────────────────────────
 
 HTML = r"""<!DOCTYPE html>
 <html lang="ja">
@@ -394,43 +430,84 @@ HTML = r"""<!DOCTYPE html>
 </html>"""
 
 
-@app.route("/")
-def index():
-    return HTML, 200, {"Content-Type": "text/html; charset=utf-8"}
+# ─── HTTPハンドラ（標準ライブラリ） ─────────────────────────────────────────
 
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass  # アクセスログを抑制
 
-@app.route("/api/members")
-def members():
-    return Response(
-        json.dumps([{"id": c["id"], "name": c["name"], "emoji": c["emoji"],
-                     "department": c["department"], "catchphrase": c["catchphrase"]}
-                    for c in CHARACTERS], ensure_ascii=False),
-        mimetype="application/json"
-    )
+    def _send(self, status, content_type, body=None):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        if body is not None:
+            self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body is not None:
+            self.wfile.write(body)
 
+    def do_GET(self):
+        if self.path == "/" or self.path.startswith("/index"):
+            self._send(200, "text/html; charset=utf-8", HTML.encode("utf-8"))
+        elif self.path == "/api/members":
+            body = json.dumps(
+                [{"id": c["id"], "name": c["name"], "emoji": c["emoji"],
+                  "department": c["department"], "catchphrase": c["catchphrase"]}
+                 for c in CHARACTERS], ensure_ascii=False).encode("utf-8")
+            self._send(200, "application/json; charset=utf-8", body)
+        else:
+            self._send(404, "text/plain; charset=utf-8", b"Not Found")
 
-@app.route("/api/ask", methods=["POST"])
-def ask():
-    data = request.get_json(force=True, silent=True) or {}
-    question = data.get("question", "").strip()
-    mode = data.get("mode", "smart")
+    def do_POST(self):
+        if self.path != "/api/ask":
+            self._send(404, "text/plain; charset=utf-8", b"Not Found")
+            return
 
-    if not question:
-        return Response(json.dumps({"error": "質問を入力してください"}, ensure_ascii=False),
-                        status=400, mimetype="application/json")
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except Exception:
+            data = {}
 
-    return Response(
-        generate_sse(question, mode),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
-                 "Access-Control-Allow-Origin": "*"},
-    )
+        question = (data.get("question") or "").strip()
+        mode = data.get("mode", "smart")
+
+        if not question:
+            body = json.dumps({"error": "質問を入力してください"}, ensure_ascii=False).encode("utf-8")
+            self._send(400, "application/json; charset=utf-8", body)
+            return
+
+        # SSEストリーミング
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        try:
+            for event in generate_sse(question, mode):
+                self.wfile.write(event.encode("utf-8"))
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # ブラウザが閉じられた
 
 
 # ─── 起動 ────────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+def main():
+    port = int(os.environ.get("PORT", "5000"))
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print("\n🚀 AI会社チーム Webサーバー起動！")
-    print("   ブラウザ: http://localhost:5000")
+    print(f"   ブラウザ: http://localhost:{port}")
     print("   Ctrl+C で停止\n")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n停止しました。")
+        server.shutdown()
+
+
+if __name__ == "__main__":
+    main()
