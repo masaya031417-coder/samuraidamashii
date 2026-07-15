@@ -1,5 +1,27 @@
 # Claude Code × Codex 連結ガイド
 
+## 実行スクリプト（このリポジトリに同梱）
+
+このガイドの連結パイプラインは、スクリプトとして実装済みです。
+
+- **Windows**: `scripts\connect-codex.ps1`
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\connect-codex.ps1 -Topic "相談したい内容"
+  ```
+
+- **Linux / macOS / クラウド環境**: `scripts/connect-codex.sh`
+
+  ```bash
+  bash scripts/connect-codex.sh "相談したい内容"
+  ```
+
+どちらも「Claudeが初期案 → Codexが敵対的レビュー → Claudeが統合」の3ステップを自動実行し、`ai-work/` に `claude-draft.md`、`codex-review.md`、`final-answer.md` を保存します。Codexが実行できなかった場合は「Codex未実行」と表示して停止します。
+
+### クラウド環境（Claude Code on the Web）での注意
+
+クラウドセッションのネットワークポリシーが `api.openai.com` / `chatgpt.com` / `auth.openai.com` への接続を拒否していると、Codex側の呼び出しは403で失敗します。クラウドで動かす場合は、環境設定のネットワークポリシーでこれらのドメインを許可し、Codexの認証（`OPENAI_API_KEY` などのシークレット）を環境に設定してください。手元のWindows PCで両CLIにログイン済みであれば、この制約はありません。
+
 ## 結論
 
 Claude CodeとCodexを同じWindowsパソコンへ入れ、PowerShell上で片方からもう片方のCLIコマンドを実行させます。
